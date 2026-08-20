@@ -349,6 +349,10 @@ export const getFriendRequests = async (req, res) => {
       .populate(
         "friendRequests",
         "firstname lastname email profilePicture"
+      )
+      .populate(
+        "friends",
+        "firstname lastname email profilePicture"
       );
 
     if (!user) {
@@ -360,7 +364,12 @@ export const getFriendRequests = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      friendRequests: user.friendRequests,
+
+      // Friend requests
+      requests: user.friendRequests,
+
+      // Actual friends
+      friends: user.friends,
     });
   } catch (error) {
     console.log(error);
