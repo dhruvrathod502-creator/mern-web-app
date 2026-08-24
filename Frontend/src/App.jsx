@@ -10,7 +10,7 @@ import Login from "./pages/Login.jsx";
 import Home from "./pages/Home.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
-import Friends from "./pages/friends.jsx";
+import Friends from "./pages/Friends.jsx";
 import Profile from "./pages/Profile.jsx";
 import Navbar from "./components/Navbar.jsx";
 import PostPage from "./pages/PostPage.jsx";

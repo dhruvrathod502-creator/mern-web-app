@@ -23,5 +23,6 @@ router.route("/delete/:id").delete(isAuthenticated, deletePost);
 router.put("/update-post/:postId", upload.single("file"), updatePost);
 router.get("/:id/like", isAuthenticated, likePost);
 router.get("/:id/dislike", isAuthenticated, dislikePost);
+router.delete("/:id", isAuthenticated, deletePost);
 
 export default router;

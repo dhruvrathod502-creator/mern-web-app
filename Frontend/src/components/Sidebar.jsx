@@ -9,12 +9,7 @@ import {
 } from "react-icons/fa";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import friends from "../assets/friend.png";
-import dashboard from "../assets/dashboard.png";
-import store from "../assets/marketplace.png";
-import group from "../assets/groups.png";
 import meta from "../assets/meta.png";
-import feeds from "../assets/feeds.png";
-import reels from "../assets/reels.png";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import userLogo from "../assets/user.jpg";
@@ -27,11 +22,6 @@ const menuItems = [
       "https://www.meta.ai/?utm_source=facebook_bookmarks&fbclid=IwY2xjawKxAphleHRuA2FlbQIxMABicmlkETFUSEdaZXFqYUxOTlg1S3dyAR6Muvyg4hACJ2WPFp8hB4kbng8eThxPA9w-kU1RLCLIim0dPOjM7_hXBs8O2A_aem_phGQiaSAJWF3ZNZ9s3JQOQ",
   },
   { icon: friends, label: "Friends", click: "/friends" },
-  { icon: dashboard, label: "Professional dashboard" },
-  { icon: feeds, label: "Feeds" },
-  { icon: group, label: "Groups" },
-  { icon: store, label: "Marketplace" },
-  { icon: reels, label: "Reels" },
   // { icon: <FaBell />, label: 'Notifications' },
 ];
 

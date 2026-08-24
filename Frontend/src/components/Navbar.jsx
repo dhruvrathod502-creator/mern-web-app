@@ -1,6 +1,5 @@
 import React from "react";
 import { setUser } from "@/redux/authSlice";
-import { useNavigate } from "react-router-dom";
 import {
   FaSearch,
   FaHome,
@@ -27,13 +26,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { toggleTheme } from "@/redux/themeSlice";
 import { toast } from "sonner";
 import axios from "axios";
-
-
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { theme } = useSelector((store) => store.theme);
+  const location = useLocation();
 
   const logoutHandler = async () => {
     try {
@@ -76,21 +75,39 @@ const Navbar = () => {
 
         {/* Center Section */}
         <div className="hidden md:flex items-center gap-19 mt-2">
-          <button className="border-b-4 border-blue-600 w-[ 120px] flex items-center justify-center pb-3">
-            <FaHome className="text-3xl text-blue-600 hover:text-blue-800 transition-all" />
+          <button
+            onClick={() => navigate("/")}
+            className={`w-[120px] flex items-center justify-center pb-3 transition-all ${
+              location.pathname === "/"
+                ? "border-b-4 border-blue-600"
+                : "hover:bg-gray-200/20 rounded-lg"
+            }`}
+          >
+            <FaHome
+              className={`text-3xl ${
+                location.pathname === "/" ? "text-blue-600" : "text-gray-400"
+              }`}
+            />
           </button>
 
-          <button className="w-[ 100px] flex items-center justify-center hover:bg-gray-200/20 rounded-lg transition-all">
-            <FaUserFriends className="text-3xl text-gray-400" />
+          <button
+            onClick={() => navigate("/friends")}
+            className={`w-[100px] flex items-center justify-center pb-3 transition-all ${
+              location.pathname === "/friends"
+                ? "border-b-4 border-blue-600"
+                : "hover:bg-gray-200/20 rounded-lg"
+            }`}
+          >
+            <FaUserFriends
+              className={`text-3xl ${
+                location.pathname === "/friends"
+                  ? "text-blue-600"
+                  : "text-gray-400"
+              }`}
+            />
           </button>
 
-          <button className="w-[ 100px] flex items-center justify-center hover:bg-gray-200/20 rounded-lg transition-all">
-            <MdOutlineOndemandVideo className="text-3xl text-gray-400" />
-          </button>
-
-          <button className="w-[ 100px] flex items-center justify-center hover:bg-gray-200/20 rounded-lg transition-all">
-            <FaStore className="text-3xl text-gray-400" />
-          </button>
+          
         </div>
 
         {/* Right Section */}

@@ -17,90 +17,81 @@ import {
 
 import axios from "axios";
 
-
 const CommentBox = ({ post }) => {
   const dispatch = useDispatch();
   const { user } = useSelector((store) => store.auth);
 
   const [content, setContent] = useState("");
 
-// Add Comment
-const postCommentHandler = async (id) => {
-  if (!content.trim()) return;
+  // Add Comment
+  const postCommentHandler = async (id) => {
+    if (!content.trim()) return;
 
-  try {
-    const res = await axios.post(
-      `http://localhost:9000/api/v1/comment/${id}/create`,
-      {
-        content: content.trim(),
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
+    try {
+      const res = await axios.post(
+        `http://localhost:9000/api/v1/comment/${id}/create`,
+        {
+          content: content.trim(),
         },
-        withCredentials: true,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        },
+      );
+
+      if (res.data.success) {
+        setContent("");
+        toast.success(res.data.message);
       }
-    );
+    } catch (error) {
+      console.log("Create comment error:", error);
 
-    if (res.data.success) {
-      setContent("");
-      toast.success(res.data.message);
+      toast.error(error.response?.data?.message || "Failed to add comment");
     }
-  } catch (error) {
-    console.log("Create comment error:", error);
+  };
 
-    toast.error(
-      error.response?.data?.message || "Failed to add comment"
-    );
-  }
-};
+  // Delete Comment
+  const deleteCommentHandler = async (id) => {
+    try {
+      const res = await axios.delete(
+        `http://localhost:9000/api/v1/comment/${id}/delete`,
+        {
+          withCredentials: true,
+        },
+      );
 
-
-// Delete Comment
-const deleteCommentHandler = async (id) => {
-  try {
-    const res = await axios.delete(
-      `http://localhost:9000/api/v1/comment/${id}/delete`,
-      {
-        withCredentials: true,
+      if (res.data.success) {
+        toast.success(res.data.message);
       }
-    );
+    } catch (error) {
+      console.log("Delete comment error:", error);
 
-    if (res.data.success) {
-      toast.success(res.data.message);
+      toast.error(error.response?.data?.message || "Failed to delete comment");
     }
-  } catch (error) {
-    console.log("Delete comment error:", error);
+  };
 
-    toast.error(
-      error.response?.data?.message || "Failed to delete comment"
-    );
-  }
-};
+  // Like Comment
+  const likeCommentHandler = async (commentId) => {
+    try {
+      const res = await axios.post(
+        `http://localhost:9000/api/v1/comment/${commentId}/like`,
+        {},
+        {
+          withCredentials: true,
+        },
+      );
 
-
-// Like Comment
-const likeCommentHandler = async (commentId) => {
-  try {
-    const res = await axios.post(
-      `http://localhost:9000/api/v1/comment/${commentId}/like`,
-      {},
-      {
-        withCredentials: true,
+      if (res.data.success) {
+        toast.success(res.data.message);
       }
-    );
+    } catch (error) {
+      console.error("Error liking comment:", error);
 
-    if (res.data.success) {
-      toast.success(res.data.message);
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
-  } catch (error) {
-    console.error("Error liking comment:", error);
-
-    toast.error(
-      error.response?.data?.message || "Something went wrong"
-    );
-  }
-};
+  };
 
   const handleCommentSubmit = () => {
     if (!content.trim()) return;
@@ -167,7 +158,8 @@ const likeCommentHandler = async (commentId) => {
                     {formatFBTime(comment?.createdAt)}
                   </p>
 
-                  <p onClick={() => likeCommentHandler(comment._id)}
+                  <p
+                    onClick={() => likeCommentHandler(comment._id)}
                     className={`${
                       comment?.likes?.includes(user?._id)
                         ? "text-blue-600 font-semibold"
@@ -189,7 +181,11 @@ const likeCommentHandler = async (commentId) => {
               </DropdownMenuTrigger>
 
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => deleteCommentHandler(comment._id)}>Delete</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => deleteCommentHandler(comment._id)}
+                >
+                  Delete
+                </DropdownMenuItem>
 
                 <DropdownMenuItem>Edit</DropdownMenuItem>
               </DropdownMenuContent>

@@ -1,8 +1,10 @@
-import React from "react";
-import { useSelector } from "react-redux";
+import React, { useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { BsThreeDots } from "react-icons/bs";
 import { FiUserX } from "react-icons/fi";
+import axios from "axios";
+import { toast } from "sonner";
 
 import {
   DropdownMenu,
@@ -16,19 +18,74 @@ import userLogo from "../assets/emptyUser.webp";
 
 const FriendsPage = () => {
   const { userProfile } = useSelector((store) => store.auth);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const friends = userProfile?.friends || [];
+  const [friends, setFriends] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Get friends
+  useEffect(() => {
+    const getFriends = async () => {
+      try {
+        setLoading(true);
+
+        const res = await axios.get(
+          "http://localhost:9000/api/v1/auth/request/list",
+          {
+            withCredentials: true,
+          },
+        );
+
+        if (res.data.success) {
+          setFriends(res.data.friends || []);
+        }
+      } catch (error) {
+        console.log(error);
+        toast.error(error.response?.data?.message || "Failed to get friends");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getFriends();
+  }, []);
+
+  // Unfriend
+  const handleUnfriend = async (friendId) => {
+  try {
+    const res = await axios.put(
+      `http://localhost:9000/api/v1/auth/request/unfriend/${friendId}`,
+      {},
+      {
+        withCredentials: true,
+      }
+    );
+
+    if (res.data.success) {
+      toast.success("Friend removed");
+
+      setFriends((prev) =>
+        prev.filter((friend) => friend._id !== friendId)
+      );
+    }
+  } catch (error) {
+    console.log(error);
+
+    toast.error(
+      error.response?.data?.message || "Failed to unfriend"
+    );
+  }
+};
 
   return (
     <div className="flex max-w-6xl mx-auto gap-5 md:pb-5 pb-2 md:px-10 px-2">
       <div className="bg-white dark:bg-[#262829] w-full p-5 rounded-lg mt-2 md:mt-5">
-        
-        <h1 className="font-semibold text-xl mb-5">
-          Friends
-        </h1>
+        <h1 className="font-semibold text-xl mb-5">Friends</h1>
 
-        {friends.length > 0 ? (
+        {loading ? (
+          <p className="text-gray-500">Loading friends...</p>
+        ) : friends.length > 0 ? (
           <div className="grid md:grid-cols-2 gap-3 rounded-2xl">
             {friends.map((friend) => (
               <div
@@ -38,11 +95,9 @@ const FriendsPage = () => {
                 {/* Friend Info */}
                 <div className="flex gap-4 items-center">
                   <img
-                    onClick={() =>
-                      navigate(`/profile/${friend._id}/post`)
-                    }
+                    onClick={() => navigate(`/profile/${friend._id}/post`)}
                     src={friend.profilePicture || userLogo}
-                    alt={`${friend.firstname} ${friend.lastname}`}
+                    alt={`${friend.firstname || ""} ${friend.lastname || ""}`}
                     className="aspect-square rounded-xl w-20 h-20 object-cover cursor-pointer"
                   />
 
@@ -51,7 +106,7 @@ const FriendsPage = () => {
                   </h1>
                 </div>
 
-                {/* Three Dots Menu */}
+                {/* Three Dots */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#333]">
@@ -69,7 +124,10 @@ const FriendsPage = () => {
                       Unfollow
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem className="cursor-pointer">
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => handleUnfriend(friend._id)}
+                    >
                       <FiUserX className="mr-2" />
                       Unfriend
                     </DropdownMenuItem>
