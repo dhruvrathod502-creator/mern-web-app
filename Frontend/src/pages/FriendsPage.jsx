@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { BsThreeDots } from "react-icons/bs";
 import { FiUserX } from "react-icons/fi";
@@ -17,66 +17,62 @@ import unfollow from "../assets/unfollow.png";
 import userLogo from "../assets/emptyUser.webp";
 
 const FriendsPage = () => {
-  const { userProfile } = useSelector((store) => store.auth);
-  const dispatch = useDispatch();
+  const { user, userProfile } = useSelector((store) => store.auth);
   const navigate = useNavigate();
 
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Get friends
+  // =========================
+  // GET FRIENDS
+  // =========================
   useEffect(() => {
     const getFriends = async () => {
       try {
         setLoading(true);
 
-        const res = await axios.get(
-          "http://localhost:9000/api/v1/auth/request/list",
-          {
-            withCredentials: true,
-          },
-        );
-
-        if (res.data.success) {
-          setFriends(res.data.friends || []);
+        // If friends are already included in profile API
+        if (userProfile?.friends) {
+          setFriends(userProfile.friends);
+          return;
         }
+
+        setFriends([]);
       } catch (error) {
         console.log(error);
-        toast.error(error.response?.data?.message || "Failed to get friends");
+        toast.error("Failed to get friends");
       } finally {
         setLoading(false);
       }
     };
 
     getFriends();
-  }, []);
+  }, [userProfile]);
 
-  // Unfriend
+  // =========================
+  // UNFRIEND
+  // =========================
   const handleUnfriend = async (friendId) => {
-  try {
-    const res = await axios.put(
-      `http://localhost:9000/api/v1/auth/request/unfriend/${friendId}`,
-      {},
-      {
-        withCredentials: true,
-      }
-    );
-
-    if (res.data.success) {
-      toast.success("Friend removed");
-
-      setFriends((prev) =>
-        prev.filter((friend) => friend._id !== friendId)
+    try {
+      const res = await axios.put(
+        `http://localhost:9000/api/v1/auth/unfriend/${friendId}`,
+        {},
+        {
+          withCredentials: true,
+        },
       );
-    }
-  } catch (error) {
-    console.log(error);
 
-    toast.error(
-      error.response?.data?.message || "Failed to unfriend"
-    );
-  }
-};
+      if (res.data.success) {
+        toast.success("Friend removed");
+
+        setFriends((prev) => prev.filter((friend) => friend._id !== friendId));
+      }
+    } catch (error) {
+      console.log(error);
+
+      toast.error(error.response?.data?.message || "Failed to unfriend");
+    }
+  };
 
   return (
     <div className="flex max-w-6xl mx-auto gap-5 md:pb-5 pb-2 md:px-10 px-2">
@@ -92,7 +88,7 @@ const FriendsPage = () => {
                 key={friend._id}
                 className="flex justify-between items-center border rounded-2xl p-4"
               >
-                {/* Friend Info */}
+                {/* FRIEND INFO */}
                 <div className="flex gap-4 items-center">
                   <img
                     onClick={() => navigate(`/profile/${friend._id}/post`)}
@@ -101,12 +97,15 @@ const FriendsPage = () => {
                     className="aspect-square rounded-xl w-20 h-20 object-cover cursor-pointer"
                   />
 
-                  <h1 className="font-semibold">
+                  <h1
+                    onClick={() => navigate(`/profile/${friend._id}/post`)}
+                    className="font-semibold cursor-pointer"
+                  >
                     {friend.firstname} {friend.lastname}
                   </h1>
                 </div>
 
-                {/* Three Dots */}
+                {/* THREE DOTS */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#333]">
@@ -124,13 +123,16 @@ const FriendsPage = () => {
                       Unfollow
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() => handleUnfriend(friend._id)}
-                    >
-                      <FiUserX className="mr-2" />
-                      Unfriend
-                    </DropdownMenuItem>
+                    {/* UNFRIEND */}
+                    {user?._id === userProfile?._id && (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() => handleUnfriend(friend._id)}
+                      >
+                        <FiUserX className="mr-2" />
+                        Unfriend
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

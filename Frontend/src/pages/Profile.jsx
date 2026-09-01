@@ -368,9 +368,7 @@ const Profile = () => {
     }
   };
 
-  // =========================
   // FETCH PROFILE ON ID CHANGE
-  // =========================
 
   useEffect(() => {
     if (params.id) {
@@ -379,15 +377,13 @@ const Profile = () => {
     }
   }, [params.id]);
 
-  // =========================
   // RETURN
-  // =========================
 
   return (
     <div className="min-h-screen">
-      {/* =========================
+      {/* 
           LOADING
-      ========================= */}
+       */}
 
       {loading && (
         <div className="fixed inset-0 z-[99999] bg-black/30 backdrop-blur-sm flex items-center justify-center">
@@ -397,9 +393,9 @@ const Profile = () => {
         </div>
       )}
 
-      {/* =========================
+      {/* 
           COVER SECTION
-      ========================= */}
+       */}
 
       <div className="relative w-full">
         {/* Blurred Background */}
@@ -446,9 +442,9 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* =========================
+      {/* 
           PROFILE INFO SECTION
-      ========================= */}
+       */}
 
       <div className="dark:bg-[#262829] bg-white z-40 py-4">
         <div className="max-w-6xl mx-auto md:px-10 px-5 flex flex-col md:flex-row md:items-center md:justify-between">
@@ -743,9 +739,9 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* =========================
+      {/* 
           CHILD ROUTES
-      ========================= */}
+       */}
 
       <Outlet />
     </div>

@@ -113,18 +113,22 @@ const PostCard = ({ post }) => {
   const deleteHandler = async () => {
     try {
       const res = await axios.delete(
-        `http://localhost:9000/api/v1/post/${post._id}/delete`,
+        `http://localhost:9000/api/v1/post/${post._id}`,
         {
           withCredentials: true,
         },
       );
 
       if (res.data.success) {
+        const updatedPosts = posts.filter((p) => p._id !== post._id);
+
+        dispatch(setPosts(updatedPosts));
+
         toast.success(res.data.message);
       }
     } catch (error) {
       console.log(error);
-      toast.error("Error deleting post");
+      toast.error(error?.response?.data?.message || "Error deleting post");
     }
   };
 
