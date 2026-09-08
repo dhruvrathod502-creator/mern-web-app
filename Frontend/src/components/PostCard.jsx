@@ -17,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { readFileAsDataURL } from "@/lib/utils";
-import { data } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -33,32 +32,62 @@ import { Textarea } from "./ui/textarea";
 const PostCard = ({ post }) => {
   const { user } = useSelector((store) => store.auth);
   const { posts } = useSelector((store) => store.post);
-  const [liked, setLiked] = useState(post?.likes?.includes(user?._id) || false);
-  const [postLike, setPostLike] = useState(post?.likes?.length);
+
+  const [liked, setLiked] = useState(
+    post?.likes?.some((id) => id?.toString() === user?._id?.toString()) ||
+      false,
+  );
+
+  const [postLike, setPostLike] = useState(post?.likes?.length || 0);
+
   const [openCommentDialog, setOpenCommentDialog] = useState(false);
   const [open, setOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [content, setContent] = useState(null);
-  const [file, setFile] = useState(post?.image);
+
+  const [imagePreview, setImagePreview] = useState(post?.image || null);
+
+  const [content, setContent] = useState(post?.content || "");
+
+  const [file, setFile] = useState(null);
+
   const imageRef = useRef();
   const dispatch = useDispatch();
 
   function formatFBTime(isoTime) {
     const date = new Date(isoTime);
     const now = new Date();
+
     const diffMs = now - date;
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHr = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHr / 24);
 
-    const optionsTime = { hour: "numeric", minute: "2-digit", hour12: true };
-    const optionsDate = { month: "long", day: "numeric" };
-    const optionsDateYear = { ...optionsDate, year: "numeric" };
+    const optionsTime = {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    };
 
-    if (diffSec < 60) return "Just now";
-    if (diffMin < 60) return `${diffMin} mins ago`;
-    if (diffHr < 24) return `${diffHr} hrs ago`;
+    const optionsDate = {
+      month: "long",
+      day: "numeric",
+    };
+
+    const optionsDateYear = {
+      ...optionsDate,
+      year: "numeric",
+    };
+
+    if (diffSec < 60) {
+      return "Just now";
+    }
+
+    if (diffMin < 60) {
+      return `${diffMin} mins ago`;
+    }
+
+    if (diffHr < 24) {
+      return `${diffHr} hrs ago`;
+    }
 
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
@@ -72,43 +101,121 @@ const PostCard = ({ post }) => {
     }
 
     if (date.getFullYear() === now.getFullYear()) {
-      return `${date.toLocaleDateString("en-US", optionsDate)} at ${date.toLocaleTimeString("en-US", optionsTime)}`;
+      return `${date.toLocaleDateString(
+        "en-US",
+        optionsDate,
+      )} at ${date.toLocaleTimeString("en-US", optionsTime)}`;
     }
 
-    return `${date.toLocaleDateString("en-US", optionsDateYear)} at ${date.toLocaleTimeString("en-US", optionsTime)}`;
+    return `${date.toLocaleDateString(
+      "en-US",
+      optionsDateYear,
+    )} at ${date.toLocaleTimeString("en-US", optionsTime)}`;
   }
+
+  // =========================
+  // LIKE / DISLIKE
+  // =========================
 
   const likeOrDislikeHandler = async () => {
     try {
       const action = liked ? "dislike" : "like";
+
       const res = await axios.get(
         `http://localhost:9000/api/v1/post/${post._id}/${action}`,
-        { withCredentials: true },
+        {
+          withCredentials: true,
+        },
       );
-      if (res.data.success) {
-        const updatedLikes = liked ? postLike - 1 : postLike + 1;
-        setPostLike(updatedLikes);
-        setLiked(!liked);
 
-        // Update the posts
+      if (res.data.success) {
+        const newLiked = !liked;
+
+        const updatedLikes = newLiked
+          ? postLike + 1
+          : Math.max(0, postLike - 1);
+
+        setPostLike(updatedLikes);
+        setLiked(newLiked);
+
         const updatedPostData = posts.map((p) =>
           p._id === post._id
             ? {
                 ...p,
-                likes: liked
-                  ? p.likes.filter((id) => id !== user._id)
-                  : [...p.likes, user._id],
+                likes: newLiked
+                  ? [...(p.likes || []), user._id]
+                  : (p.likes || []).filter(
+                      (id) => id?.toString() !== user?._id?.toString(),
+                    ),
               }
             : p,
         );
-        toast.success(res.data.message);
+
         dispatch(setPosts(updatedPostData));
+
+        toast.success(res.data.message);
       }
     } catch (error) {
       console.log(error);
-      toast.error(error.response.data.message);
+
+      toast.error(error?.response?.data?.message || "Something went wrong");
     }
   };
+
+  // =========================
+  // SHARE
+  // =========================
+
+  const handleShare = async (postId) => {
+    const postUrl = `${window.location.origin}/post/${postId}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Check out this post",
+          text: "Check out this post",
+          url: postUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(postUrl);
+
+        toast.success("Post URL copied to clipboard");
+      }
+
+      const res = await axios.post(
+        `http://localhost:9000/api/v1/post/${postId}/share`,
+        {},
+        {
+          withCredentials: true,
+        },
+      );
+
+      if (res.data.success) {
+        const updatedPostData = posts.map((p) =>
+          p._id === postId
+            ? {
+                ...p,
+                shares: res.data.shares || p.shares || [],
+              }
+            : p,
+        );
+
+        dispatch(setPosts(updatedPostData));
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return;
+      }
+
+      console.log(error);
+
+      toast.error(error?.response?.data?.message || "Failed to share post");
+    }
+  };
+
+  // =========================
+  // DELETE POST
+  // =========================
 
   const deleteHandler = async () => {
     try {
@@ -128,37 +235,30 @@ const PostCard = ({ post }) => {
       }
     } catch (error) {
       console.log(error);
+
       toast.error(error?.response?.data?.message || "Error deleting post");
     }
   };
 
-  const handleShare = (postId) => {
-    const postUrl = `${window.location.origin}/post/${postId}`;
-    if (navigator.share) {
-      navigator
-        .share({
-          title: "Check out this post",
-          text: "Check out this post",
-          url: postUrl,
-        })
-        .then(() => console.log("Post shared successfully"))
-        .catch((error) => console.error("Error sharing post:", error));
-    } else {
-      //fallback :copy to clip board
-      navigator.clipboard.writeText(postUrl).then(() => {
-        toast.success("Post URL copied to clipboard");
-      });
-    }
-  };
+  // =========================
+  // IMAGE CHANGE
+  // =========================
 
   const fileChangeHandler = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFile(file);
-      const dataUrl = await readFileAsDataURL(file);
+    const selectedFile = e.target.files?.[0];
+
+    if (selectedFile) {
+      setFile(selectedFile);
+
+      const dataUrl = await readFileAsDataURL(selectedFile);
+
       setImagePreview(dataUrl);
     }
   };
+
+  // =========================
+  // REMOVE IMAGE
+  // =========================
 
   const removeImage = () => {
     setFile(null);
@@ -169,15 +269,20 @@ const PostCard = ({ post }) => {
     }
   };
 
-  const onSubmitHandler = async (id) => {
-    if (!content && !file) {
+  // =========================
+  // UPDATE POST
+  // =========================
+
+  const onSubmitHandler = async () => {
+    if (!content?.trim() && !file && !imagePreview) {
       toast.error("Post must have content or an image");
+
       return;
     }
 
     const formData = new FormData();
 
-    formData.append("content", content);
+    formData.append("content", content || "");
 
     if (file) {
       formData.append("file", file);
@@ -191,6 +296,7 @@ const PostCard = ({ post }) => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
+
           withCredentials: true,
         },
       );
@@ -203,6 +309,7 @@ const PostCard = ({ post }) => {
         dispatch(setPosts(updatedPosts));
 
         toast.success(res.data.message);
+
         setOpen(false);
       }
     } catch (error) {
@@ -212,35 +319,60 @@ const PostCard = ({ post }) => {
     }
   };
 
-  const editPostHandler = async (post) => {
+  // =========================
+  // EDIT POST
+  // =========================
+
+  const editPostHandler = (postData) => {
     setOpen(true);
-    setImagePreview(post.image);
-    setContent(post.content);
+
+    setImagePreview(postData?.image || null);
+
+    setContent(postData?.content || "");
+
+    setFile(null);
   };
+
+  // =========================
+  // COUNTS
+  // =========================
+
+  const likeCount = postLike || 0;
+
+  const commentCount = post?.comments?.length || 0;
+
+  const shareCount = post?.shares?.length || 0;
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-gray-700 dark:bg-[#262829]">
+      {/* ================= POST HEADER ================= */}
+
       <div className="flex justify-between items-center px-4 pt-4">
         <div className="flex gap-2 items-center">
           <Avatar>
             <AvatarImage src={post?.user?.profilePicture || userLogo} />
+
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
+
           <div>
             <h1 className="font-semibold">
               {post?.user?.firstname} {post?.user?.lastname}
             </h1>
+
             <p className="text-sm">{formatFBTime(post?.createdAt)}</p>
           </div>
         </div>
 
+        {/* ================= THREE DOTS ================= */}
+
         <DropdownMenu>
           <DropdownMenuTrigger className="p-2 rounded-full hover:bg-[#e4e6eb] dark:hover:bg-[#303233] cursor-pointer">
-            <BsThreeDots className="cursor-pointer" />
+            <BsThreeDots />
           </DropdownMenuTrigger>
 
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => deleteHandler(post._id)}>
+            <DropdownMenuItem onClick={deleteHandler}>
               Delete Post
             </DropdownMenuItem>
 
@@ -249,11 +381,14 @@ const PostCard = ({ post }) => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* ================= EDIT DIALOG ================= */}
+
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="sm:max-w-[500px] dark:bg-[#262829]">
             <DialogHeader>
               <DialogTitle className="text-center text-xl font-semibold">
-                Create Post
+                Edit Post
               </DialogTitle>
 
               <hr className="my-2" />
@@ -261,6 +396,7 @@ const PostCard = ({ post }) => {
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarImage src={user?.profilePicture || userLogo} />
+
                   <AvatarFallback>CN</AvatarFallback>
                 </Avatar>
 
@@ -271,7 +407,9 @@ const PostCard = ({ post }) => {
 
                   <div className="bg-gray-200 rounded-lg px-2 py-1 flex items-center gap-1 w-fit">
                     <FaEarthAmericas className="text-gray-700 w-4 h-4" />
+
                     <span className="text-sm text-black">Public</span>
+
                     <TiArrowSortedDown />
                   </div>
                 </div>
@@ -285,7 +423,8 @@ const PostCard = ({ post }) => {
               className="text-xl border-none shadow-none"
             />
 
-            {/* Image Preview */}
+            {/* IMAGE PREVIEW */}
+
             {imagePreview && (
               <div className="relative mt-2 border rounded-lg overflow-hidden">
                 <img
@@ -294,29 +433,17 @@ const PostCard = ({ post }) => {
                   className="w-full max-h-[300px] object-contain rounded-lg"
                 />
 
-                {/* Cancel Button */}
                 <button
                   type="button"
                   onClick={removeImage}
-                  className="
-                    absolute
-                    top-2
-                    right-2
-                    bg-black/70
-                    text-white
-                    rounded-full
-                    w-8
-                    h-8
-                    flex
-                    items-center
-                    justify-center
-                    hover:bg-black
-                  "
+                  className="absolute top-2 right-2 bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black"
                 >
                   <X size={18} />
                 </button>
               </div>
             )}
+
+            {/* ADD TO POST */}
 
             <div className="border rounded-lg p-4 flex justify-between items-center">
               <h1 className="font-semibold">Add to your post</h1>
@@ -353,12 +480,15 @@ const PostCard = ({ post }) => {
                 type="button"
                 className="w-full bg-[#0866ff] hover:bg-[#0866ffdd]"
               >
-                Post
+                Update
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* ================= POST CONTENT ================= */}
+
       {post?.content && (
         <div className="px-4 pt-3 pb-4">
           <p className="text-[15px] leading-6 text-gray-800 dark:text-gray-100 whitespace-pre-wrap break-words">
@@ -366,50 +496,93 @@ const PostCard = ({ post }) => {
           </p>
         </div>
       )}
-      <img
-        src={post?.image}
-        alt=""
-        className="w-full object-cover max-h-[750px]"
-      />
-      <div className="my-2">
-        <div className="flex justify-between">
-          <p>{postLike} Likes</p>
-          <div className="flex items-center gap-7">
-            <p>{post?.comments?.length} Comment</p>
-            <p>10 Share</p>
+
+      {/* ================= POST IMAGE ================= */}
+
+      {post?.image && (
+        <img
+          src={post.image}
+          alt=""
+          className="w-full object-cover max-h-[750px]"
+        />
+      )}
+
+      {/* ================================================= */}
+      {/* COUNTS */}
+      {/* ================================================= */}
+
+      <div className="grid grid-cols-3 px-4 pt-3 pb-2 text-sm text-gray-600 dark:text-gray-300">
+        {/* LIKE COUNT */}
+
+        <div className="text-center">
+          {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+        </div>
+
+        {/* COMMENT COUNT */}
+
+        <div className="text-center">
+          {commentCount} {commentCount === 1 ? "Comment" : "Comments"}
+        </div>
+
+        {/* SHARE COUNT */}
+
+        <div className="text-center">
+          {shareCount} {shareCount === 1 ? "Share" : "Shares"}
+        </div>
+      </div>
+
+      <hr />
+
+      {/* ================================================= */}
+      {/* LIKE COMMENT SHARE BUTTONS */}
+      {/* ================================================= */}
+
+      <div className="grid grid-cols-3 items-center px-4 md:px-7 py-2">
+        {/* ================= LIKE ================= */}
+
+        <div
+          onClick={likeOrDislikeHandler}
+          className="flex justify-center cursor-pointer"
+        >
+          <div className="flex gap-2 items-center">
+            <ThumbsUp
+              fill={liked ? "#0866ff" : "none"}
+              className={liked ? "text-blue-600" : ""}
+            />
+
+            <p className={liked ? "font-semibold text-blue-600" : ""}>Like</p>
+          </div>
+        </div>
+
+        {/* ================= COMMENT ================= */}
+
+        <div
+          onClick={() => setOpenCommentDialog(!openCommentDialog)}
+          className="flex justify-center cursor-pointer"
+        >
+          <div className="flex gap-2 items-center">
+            <VscCommentCompact className="h-6 w-6" />
+
+            <p>Comment</p>
+          </div>
+        </div>
+
+        {/* ================= SHARE ================= */}
+
+        <div
+          onClick={() => handleShare(post?._id)}
+          className="flex justify-center cursor-pointer"
+        >
+          <div className="flex gap-2 items-center">
+            <PiShareFat className="h-6 w-6" />
+
+            <p>Share</p>
           </div>
         </div>
       </div>
-      <hr />
-      <div className="flex justify-between items-center mt-2 md:px-7">
-        <div onClick={likeOrDislikeHandler}>
-          {liked ? (
-            <div className="flex gap-2 items-center cursor-pointer">
-              <ThumbsUp fill="#0866ff" className="text-gray-700" />
-              <p className="font-semibold text-blue-600">Like</p>
-            </div>
-          ) : (
-            <div className="flex gap-2 items-center cursor-pointer">
-              <ThumbsUp />
-              <p>Like</p>
-            </div>
-          )}
-        </div>
-        <div
-          onClick={() => setOpenCommentDialog(!openCommentDialog)}
-          className="flex gap-2 items-center cursor-pointer"
-        >
-          <VscCommentCompact />
-          <p>Comment</p>
-        </div>
-        <div
-          onClick={() => handleShare(post?._id)}
-          className="flex gap-2 items-center cursor-pointer"
-        >
-          <PiShareFat className="h-6 w-6" />
-          <p>Share</p>
-        </div>
-      </div>
+
+      {/* ================= COMMENT BOX ================= */}
+
       {openCommentDialog && (
         <CommentBox post={post} formatTime={formatFBTime} />
       )}
