@@ -23,39 +23,36 @@ const FriendsPage = () => {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // =========================
-  // GET FRIENDS
-  // =========================
   useEffect(() => {
     const getFriends = async () => {
       try {
         setLoading(true);
 
-        // If friends are already included in profile API
-        if (userProfile?.friends) {
-          setFriends(userProfile.friends);
-          return;
-        }
+        const res = await axios.get(
+          "http://localhost:9000/api/v1/auth/request/list",
+          {
+            withCredentials: true,
+          },
+        );
 
-        setFriends([]);
+        if (res.data.success) {
+          setFriends(res.data.friends || []);
+        }
       } catch (error) {
         console.log(error);
-        toast.error("Failed to get friends");
+        toast.error(error.response?.data?.message || "Failed to get friends");
       } finally {
         setLoading(false);
       }
     };
 
     getFriends();
-  }, [userProfile]);
+  }, []);
 
-  // =========================
-  // UNFRIEND
-  // =========================
   const handleUnfriend = async (friendId) => {
     try {
       const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/unfriend/${friendId}`,
+        `http://localhost:9000/api/v1/auth/request/unfriend/${friendId}`,
         {},
         {
           withCredentials: true,
@@ -88,7 +85,6 @@ const FriendsPage = () => {
                 key={friend._id}
                 className="flex justify-between items-center border rounded-2xl p-4"
               >
-                {/* FRIEND INFO */}
                 <div className="flex gap-4 items-center">
                   <img
                     onClick={() => navigate(`/profile/${friend._id}/post`)}
@@ -105,7 +101,6 @@ const FriendsPage = () => {
                   </h1>
                 </div>
 
-                {/* THREE DOTS */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#333]">
@@ -123,7 +118,6 @@ const FriendsPage = () => {
                       Unfollow
                     </DropdownMenuItem>
 
-                    {/* UNFRIEND */}
                     {user?._id === userProfile?._id && (
                       <DropdownMenuItem
                         className="cursor-pointer"

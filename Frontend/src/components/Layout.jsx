@@ -7,7 +7,7 @@ const Layout = () => {
     <div className="min-h-screen bg-[#f2f4f7] dark:bg-[#18191a]">
       <Sidebar />
 
-      <main className="ml-[320px] mr-[350px] pt-16 flex justify-center">
+      <main className="ml-[320px] pt-16 flex justify-center">
         <Outlet />
       </main>
     </div>
