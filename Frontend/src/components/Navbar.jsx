@@ -33,6 +33,7 @@ const Navbar = () => {
   const location = useLocation();
 
   const { theme } = useSelector((store) => store.theme);
+  const { user } = useSelector((store) => store.auth);
 
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState([]);
@@ -197,9 +198,9 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* ========================= */}
+        
         {/* CENTER SECTION */}
-        {/* ========================= */}
+        
 
         <div className="hidden md:flex items-center gap-19 mt-2">
           {/* HOME */}
@@ -237,16 +238,12 @@ const Navbar = () => {
           </button>
         </div>
 
-        {/* ========================= */}
+        
         {/* RIGHT SECTION */}
-        {/* ========================= */}
+        
 
         <div className="flex items-center justify-end space-x-4 w-[400px]">
-          {/* NOTIFICATION */}
-          <FaBell className="hidden md:block text-xl text-gray-600 cursor-pointer hover:text-blue-600 transition-all" />
-
-          {/* MENU */}
-          <IoMdMenu className="hidden md:block text-2xl text-gray-600 cursor-pointer hover:text-blue-600 transition-all" />
+          
 
           {/* PROFILE DROPDOWN */}
 
@@ -255,11 +252,12 @@ const Navbar = () => {
               <button>
                 <Avatar className="cursor-pointer">
                   <AvatarImage
-                    src="https://github.com/shadcn.png"
-                    alt="Profile"
+                    src={user?.profilePicture || "/user.jpg"}
+                    alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
                   />
-
-                  <AvatarFallback>CN</AvatarFallback>
+                  <AvatarFallback>
+                    {user?.firstname?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
@@ -270,51 +268,10 @@ const Navbar = () => {
             >
               {/* ACCOUNT */}
               <DropdownMenuGroup>
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-
-                {/* PROFILE */}
-                <DropdownMenuItem
-                  onClick={() => navigate("/profile")}
-                  className="cursor-pointer"
-                >
-                  Profile
-                  <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-                </DropdownMenuItem>
-
-                {/* FRIENDS */}
-                <DropdownMenuItem
-                  onClick={() => navigate("/friends")}
-                  className="cursor-pointer"
-                >
-                  Friends
-                  <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
-                </DropdownMenuItem>
-
-                {/* SETTINGS */}
-                <DropdownMenuItem className="cursor-pointer">
-                  Settings
-                  <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
-                </DropdownMenuItem>
+                
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
-
-              {/* DISPLAY */}
-              <DropdownMenuItem
-                onClick={() => dispatch(toggleTheme())}
-                className="flex items-center gap-3 cursor-pointer"
-              >
-                <div className="bg-[#3a3c3d] p-2 rounded-full">
-                  {theme === "light" ? (
-                    <FaMoon className="text-gray-200" />
-                  ) : (
-                    <FaSun className="text-gray-200" />
-                  )}
-                </div>
-
-                <span>Display</span>
-              </DropdownMenuItem>
-
               {/* LOGOUT */}
               <DropdownMenuItem
                 onClick={logoutHandler}

@@ -106,10 +106,27 @@ export const logoutUser = async (_, res) => {
 export const getProfile = async (req, res) => {
   try {
     const userId = req.params.id;
+
     const user = await User.findById(userId)
       .populate({
+        path: "followers",
+        select: "firstname lastname profilePicture",
+      })
+      .populate({
+        path: "following",
+        select: "firstname lastname profilePicture",
+      })
+      .populate({
+        path: "friends",
+        select: "firstname lastname profilePicture",
+      })
+      .populate({
         path: "posts",
-        options: { sort: { createdAt: -1 } },
+        options: {
+          sort: {
+            createdAt: -1,
+          },
+        },
         populate: [
           {
             path: "user",
@@ -119,18 +136,30 @@ export const getProfile = async (req, res) => {
             path: "comments",
             populate: {
               path: "userId",
-              select: "firstname lastname profilePicture",
+              select:
+                "firstname lastname profilePicture",
             },
           },
         ],
       })
-      .populate({ path: "bio" });
+      .populate({
+        path: "bio",
+      });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     return res.status(200).json({
-      user,
       success: true,
+      user,
     });
   } catch (error) {
     console.log(error);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -545,6 +574,117 @@ export const searchUsers = async (req, res) => {
     return res.status(200).json({
       success: true,
       users,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const followUser = async (req, res) => {
+  try {
+    const currentUserId = req.id;
+    const targetUserId = req.params.id;
+
+    if (
+      currentUserId.toString() ===
+      targetUserId.toString()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot follow yourself",
+      });
+    }
+
+    const currentUser =
+      await User.findById(currentUserId);
+
+    const targetUser =
+      await User.findById(targetUserId);
+
+    if (!currentUser || !targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const alreadyFollowing =
+      currentUser.following.some(
+        (id) =>
+          id.toString() ===
+          targetUserId.toString()
+      );
+
+    if (alreadyFollowing) {
+      return res.status(400).json({
+        success: false,
+        message: "You are already following this user",
+      });
+    }
+
+    currentUser.following.push(targetUserId);
+    targetUser.followers.push(currentUserId);
+
+    await currentUser.save();
+    await targetUser.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "User followed successfully",
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const unfollowUser = async (req, res) => {
+  try {
+    const currentUserId = req.id;
+    const targetUserId = req.params.id;
+
+    const currentUser =
+      await User.findById(currentUserId);
+
+    const targetUser =
+      await User.findById(targetUserId);
+
+    if (!currentUser || !targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    currentUser.following =
+      currentUser.following.filter(
+        (id) =>
+          id.toString() !==
+          targetUserId.toString()
+      );
+
+    targetUser.followers =
+      targetUser.followers.filter(
+        (id) =>
+          id.toString() !==
+          currentUserId.toString()
+      );
+
+    await currentUser.save();
+    await targetUser.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "User unfollowed successfully",
     });
   } catch (error) {
     console.log(error);
