@@ -34,11 +34,6 @@ import unfollow from "../assets/unfollow.png";
 
 const Profile = () => {
   const [open, setOpen] = useState(false);
-  const [relationDialog, setRelationDialog] = useState(false);
-  const [relationType, setRelationType] = useState("followers");
-  const [relationUsers, setRelationUsers] = useState([]);
-  const [relationLoading, setRelationLoading] = useState(false);
-
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const params = useParams();
@@ -52,10 +47,7 @@ const Profile = () => {
 
   const isOwner = user?._id?.toString() === userProfile?._id?.toString();
 
-  const isFollowing = user?.following?.some(
-    (id) => id?.toString() === userProfile?._id?.toString(),
-  );
-
+  
   const isFriend = user?.friends?.some(
     (id) => id?.toString() === userProfile?._id?.toString(),
   );
@@ -359,88 +351,6 @@ const Profile = () => {
     }
   };
 
-  // =========================
-  // FOLLOW
-  // =========================
-
-  const followUser = async (id) => {
-    try {
-      const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/follow/${id}`,
-        {},
-        {
-          withCredentials: true,
-        },
-      );
-
-      if (res.data.success) {
-        await refreshRelationData();
-
-        toast.success(res.data.message);
-      }
-    } catch (error) {
-      console.log(error);
-
-      toast.error(error.response?.data?.message || "Something went wrong");
-    }
-  };
-
-  // =========================
-  // UNFOLLOW
-  // =========================
-
-  const unFollowUser = async (id) => {
-    try {
-      const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/unfollow/${id}`,
-        {},
-        {
-          withCredentials: true,
-        },
-      );
-
-      if (res.data.success) {
-        await refreshRelationData();
-
-        toast.success(res.data.message);
-      }
-    } catch (error) {
-      console.log(error);
-
-      toast.error(error.response?.data?.message || "Something went wrong");
-    }
-  };
-
-  // =========================
-  // SHOW FOLLOWERS / FOLLOWING
-  // =========================
-
-  const openRelationDialog = async (type) => {
-    setRelationType(type);
-    setRelationDialog(true);
-    setRelationLoading(true);
-
-    try {
-      const res = await axios.get(
-        `http://localhost:9000/api/v1/auth/profile/${params.id}/${type}`,
-        {
-          withCredentials: true,
-        },
-      );
-
-      if (res.data.success) {
-        setRelationUsers(res.data.users || []);
-      }
-    } catch (error) {
-      console.log(error);
-
-      toast.error(error.response?.data?.message || `Failed to load ${type}`);
-
-      setRelationUsers([]);
-    } finally {
-      setRelationLoading(false);
-    }
-  };
 
   // =========================
   // OPEN USER PROFILE
