@@ -4,15 +4,23 @@ import jwt from "jsonwebtoken";
 import getDataUri from "../utils/dataUri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Bio } from "../models/userbio.model.js";
-import { populate } from "dotenv";
+import Friendship from "../models/friendship.model.js";
 
+
+// ==================== REGISTER ====================
 
 export const registerUser = async (req, res) => {
   try {
-    const { firstname, lastname, email, password, gender, dateOfBirth } =
-      req.body;
+    const {
+      firstname,
+      lastname,
+      email,
+      password,
+      gender,
+      dateOfBirth,
+    } = req.body;
 
-    const existingUser = await User.findOne({ email: email });
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({
@@ -22,6 +30,7 @@ export const registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = new User({
       firstname,
       lastname,
@@ -32,12 +41,14 @@ export const registerUser = async (req, res) => {
     });
 
     await user.save();
+
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
     });
   } catch (error) {
     console.log(error);
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -46,12 +57,15 @@ export const registerUser = async (req, res) => {
   }
 };
 
+
+// ==================== LOGIN ====================
+
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check the existing user with this email
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -59,7 +73,11 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const matchPassword = await bcrypt.compare(password, user.password);
+    const matchPassword = await bcrypt.compare(
+      password,
+      user.password
+    );
+
     if (!matchPassword) {
       return res.status(401).json({
         success: false,
@@ -67,9 +85,14 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const token = await jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
-      expiresIn: "1d",
-    });
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.SECRET_KEY,
+      {
+        expiresIn: "1d",
+      }
+    );
+
     return res
       .status(200)
       .cookie("token", token, {
@@ -84,6 +107,7 @@ export const loginUser = async (req, res) => {
       });
   } catch (error) {
     console.log(error);
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -92,59 +116,35 @@ export const loginUser = async (req, res) => {
   }
 };
 
+
+// ==================== LOGOUT ====================
+
 export const logoutUser = async (_, res) => {
   try {
-    return res.status(200).cookie("token", "", { maxAge: 0 }).json({
+    return res.status(200).cookie("token", "", {
+      maxAge: 0,
+    }).json({
       success: true,
       message: "User logged out successfully",
     });
   } catch (error) {
     console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
+
+
+// ==================== GET PROFILE ====================
 
 export const getProfile = async (req, res) => {
   try {
     const userId = req.params.id;
 
-    const user = await User.findById(userId)
-      .populate({
-        path: "followers",
-        select: "firstname lastname profilePicture",
-      })
-      .populate({
-        path: "following",
-        select: "firstname lastname profilePicture",
-      })
-      .populate({
-        path: "friends",
-        select: "firstname lastname profilePicture",
-      })
-      .populate({
-        path: "posts",
-        options: {
-          sort: {
-            createdAt: -1,
-          },
-        },
-        populate: [
-          {
-            path: "user",
-            select: "firstname lastname profilePicture",
-          },
-          {
-            path: "comments",
-            populate: {
-              path: "userId",
-              select:
-                "firstname lastname profilePicture",
-            },
-          },
-        ],
-      })
-      .populate({
-        path: "bio",
-      });
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -153,9 +153,48 @@ export const getProfile = async (req, res) => {
       });
     }
 
+    const bio = await Bio.findOne({
+      user: userId,
+    });
+
+    const sentRequests = await Friendship.find({
+      sender: userId,
+      type: "friend",
+    });
+
+    const receivedRequests = await Friendship.find({
+      receiver: userId,
+      type: "friend",
+    });
+
+    const friendships = await Friendship.find({
+      $or: [
+        { sender: userId },
+        { receiver: userId },
+      ],
+      type: "friend",
+      status: "accepted",
+    });
+
+    const followers = await Friendship.find({
+      receiver: userId,
+      type: "follow",
+    });
+
+    const following = await Friendship.find({
+      sender: userId,
+      type: "follow",
+    });
+
     return res.status(200).json({
       success: true,
       user,
+      bio,
+      friendships,
+      followers,
+      following,
+      sentRequests,
+      receivedRequests,
     });
   } catch (error) {
     console.log(error);
@@ -163,9 +202,13 @@ export const getProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
     });
   }
 };
+
+
+// ==================== UPDATE PROFILE PHOTO ====================
 
 export const updateProfilePhoto = async (req, res) => {
   try {
@@ -178,29 +221,39 @@ export const updateProfilePhoto = async (req, res) => {
         success: false,
       });
     }
+
     const fileUri = getDataUri(file);
-    //upload to cloudinary
+
     const result = await cloudinary.uploader.upload(fileUri);
 
-    //update user document
     const user = await User.findByIdAndUpdate(
       userId,
-      { profilePicture: result.secure_url },
-      { returnDocument: "after" },
+      {
+        profilePicture: result.secure_url,
+      },
+      {
+        returnDocument: "after",
+      }
     );
-    res.status(200).json({
+
+    return res.status(200).json({
       success: true,
       message: "Profile photo updated successfully",
       profilePicture: user.profilePicture,
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Something went wrong",
       success: false,
+      error: error.message,
     });
   }
 };
+
+
+// ==================== UPDATE COVER PHOTO ====================
 
 export const updateCoverPhoto = async (req, res) => {
   try {
@@ -213,29 +266,39 @@ export const updateCoverPhoto = async (req, res) => {
         success: false,
       });
     }
+
     const fileUri = getDataUri(file);
-    //upload to cloudinary
+
     const result = await cloudinary.uploader.upload(fileUri);
 
-    //update user document
     const user = await User.findByIdAndUpdate(
       userId,
-      { coverPhoto: result.secure_url },
-      { returnDocument: "after" },
+      {
+        coverPhoto: result.secure_url,
+      },
+      {
+        returnDocument: "after",
+      }
     );
-    res.status(200).json({
+
+    return res.status(200).json({
       success: true,
       message: "Cover photo updated successfully",
       coverPhoto: user.coverPhoto,
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Something went wrong",
       success: false,
+      error: error.message,
     });
   }
 };
+
+
+// ==================== UPDATE BIO ====================
 
 export const updateIntro = async (req, res) => {
   try {
@@ -251,7 +314,9 @@ export const updateIntro = async (req, res) => {
       hometown,
     } = req.body;
 
-    let bio = await Bio.findOne({ user: userId });
+    let bio = await Bio.findOne({
+      user: userId,
+    });
 
     if (!bio) {
       bio = new Bio({
@@ -259,22 +324,35 @@ export const updateIntro = async (req, res) => {
       });
     }
 
-    if (bioText !== undefined) bio.bioText = bioText;
-    if (liveIn !== undefined) bio.liveIn = liveIn;
-    if (relationship !== undefined) bio.relationship = relationship;
-    if (workplace !== undefined) bio.workplace = workplace;
-    if (education !== undefined) bio.education = education;
-    if (phone !== undefined) bio.phone = phone;
-    if (hometown !== undefined) bio.hometown = hometown;
+    if (bioText !== undefined) {
+      bio.bioText = bioText;
+    }
+
+    if (liveIn !== undefined) {
+      bio.liveIn = liveIn;
+    }
+
+    if (relationship !== undefined) {
+      bio.relationship = relationship;
+    }
+
+    if (workplace !== undefined) {
+      bio.workplace = workplace;
+    }
+
+    if (education !== undefined) {
+      bio.education = education;
+    }
+
+    if (phone !== undefined) {
+      bio.phone = phone;
+    }
+
+    if (hometown !== undefined) {
+      bio.hometown = hometown;
+    }
 
     await bio.save();
-
-    const user = await User.findById(userId);
-
-    if (!user.bio || user.bio.toString() !== bio._id.toString()) {
-      user.bio = bio._id;
-      await user.save();
-    }
 
     return res.status(200).json({
       success: true,
@@ -282,6 +360,8 @@ export const updateIntro = async (req, res) => {
       bio,
     });
   } catch (error) {
+    console.log(error);
+
     return res.status(500).json({
       success: false,
       message: "Error updating bio",
@@ -291,9 +371,11 @@ export const updateIntro = async (req, res) => {
 };
 
 
+// ==================== GET CURRENT USER ====================
+
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.id);
+    const user = await User.findById(req.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -312,93 +394,101 @@ export const getCurrentUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
 
-export const sendFriendRequest = async (req, res) =>{
-  try {
-    const targetUserId = req.params.id;
-    const currentUserId = req.id;
 
-    if(targetUserId === currentUserId.toString()){
+// ==================== SEND FRIEND REQUEST ====================
+
+export const sendFriendRequest = async (req, res) => {
+  try {
+    const currentUserId = req.id;
+    const targetUserId = req.params.id;
+
+    if (
+      currentUserId.toString() ===
+      targetUserId.toString()
+    ) {
       return res.status(400).json({
-        success:false,
+        success: false,
         message: "You can't send friend request to yourself",
       });
     }
 
-    const currentUser = await User.findById(currentUserId);
     const targetUser = await User.findById(targetUserId);
 
-    if (!currentUser || !targetUser) {
+    if (!targetUser) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
 
-    if (currentUser.friends.includes(targetUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "You are already friends",
-      });
+    const existingFriendship = await Friendship.findOne({
+      $or: [
+        {
+          sender: currentUserId,
+          receiver: targetUserId,
+          type: "friend",
+        },
+        {
+          sender: targetUserId,
+          receiver: currentUserId,
+          type: "friend",
+        },
+      ],
+    });
+
+    if (existingFriendship) {
+      if (existingFriendship.status === "accepted") {
+        return res.status(400).json({
+          success: false,
+          message: "You are already friends",
+        });
+      }
+
+      if (
+        existingFriendship.status === "pending" &&
+        existingFriendship.sender.toString() ===
+          currentUserId.toString()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Friend request already sent",
+        });
+      }
+
+      if (
+        existingFriendship.status === "pending" &&
+        existingFriendship.receiver.toString() ===
+          currentUserId.toString()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "This user has already sent you a friend request",
+        });
+      }
+
+      if (existingFriendship.status === "rejected") {
+        await Friendship.findByIdAndDelete(
+          existingFriendship._id
+        );
+      }
     }
 
-    if (currentUser.sentRequests.includes(targetUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Friend request already sent",
-      });
-    }
+    const friendship = await Friendship.create({
+      sender: currentUserId,
+      receiver: targetUserId,
+      status: "pending",
+      type: "friend",
+    });
 
-    currentUser.sentRequests.push(targetUserId);
-    targetUser.friendRequests.push(currentUserId);
-
-    await currentUser.save();
-    await targetUser.save();
-
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
       message: "Friend request sent successfully",
-    });
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success:false,
-      message : "Server error"
-    });
-  }
-}
-
-export const getFriendRequests = async (req, res) => {
-  try {
-    const user = await User.findById(req.id)
-      .populate(
-        "friendRequests",
-        "firstname lastname email profilePicture"
-      )
-      .populate(
-        "friends",
-        "firstname lastname email profilePicture"
-      );
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-
-      // Friend requests
-      requests: user.friendRequests,
-
-      // Actual friends
-      friends: user.friends,
+      friendship,
     });
   } catch (error) {
     console.log(error);
@@ -406,54 +496,115 @@ export const getFriendRequests = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
 
-export const acceptFriendRequest = async (req, res) => {
+
+// ==================== GET FRIEND REQUESTS ====================
+
+export const getFriendRequests = async (req, res) => {
   try {
-    const requestUserId = req.params.id;
     const currentUserId = req.id;
 
-    const currentUser = await User.findById(currentUserId);
-    const requestUser = await User.findById(requestUserId);
-
-    if (!currentUser || !requestUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
+    const requests = await Friendship.find({
+      receiver: currentUserId,
+      type: "friend",
+      status: "pending",
+    })
+      .populate(
+        "sender",
+        "firstname lastname email profilePicture"
+      )
+      .sort({
+        createdAt: -1,
       });
-    }
 
-    if (!currentUser.friendRequests.includes(requestUserId)) {
-      return res.status(400).json({
+    const sentRequests = await Friendship.find({
+      sender: currentUserId,
+      type: "friend",
+      status: "pending",
+    })
+      .populate(
+        "receiver",
+        "firstname lastname email profilePicture"
+      )
+      .sort({
+        createdAt: -1,
+      });
+
+    const friends = await Friendship.find({
+      $or: [
+        {
+          sender: currentUserId,
+        },
+        {
+          receiver: currentUserId,
+        },
+      ],
+      type: "friend",
+      status: "accepted",
+    })
+      .populate(
+        "sender",
+        "firstname lastname email profilePicture"
+      )
+      .populate(
+        "receiver",
+        "firstname lastname email profilePicture"
+      )
+      .sort({
+        createdAt: -1,
+      });
+
+    return res.status(200).json({
+      success: true,
+      requests,
+      sentRequests,
+      friends,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+
+// ==================== ACCEPT FRIEND REQUEST ====================
+
+export const acceptFriendRequest = async (req, res) => {
+  try {
+    const currentUserId = req.id;
+    const requestUserId = req.params.id;
+
+    const friendship = await Friendship.findOne({
+      sender: requestUserId,
+      receiver: currentUserId,
+      type: "friend",
+      status: "pending",
+    });
+
+    if (!friendship) {
+      return res.status(404).json({
         success: false,
         message: "Friend request not found",
       });
     }
 
-    if (!currentUser.friends.includes(requestUserId)) {
-      currentUser.friends.push(requestUserId);
-    }
+    friendship.status = "accepted";
 
-    if (!requestUser.friends.includes(currentUserId)) {
-      requestUser.friends.push(currentUserId);
-    }
-
-    currentUser.friendRequests = currentUser.friendRequests.filter(
-      (id) => id.toString() !== requestUserId.toString()
-    );
-
-    requestUser.sentRequests = requestUser.sentRequests.filter(
-      (id) => id.toString() !== currentUserId.toString()
-    );
-
-    await currentUser.save();
-    await requestUser.save();
+    await friendship.save();
 
     return res.status(200).json({
       success: true,
       message: "Friend request accepted successfully",
+      friendship,
     });
   } catch (error) {
     console.log(error);
@@ -461,46 +612,41 @@ export const acceptFriendRequest = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
 
+
+// ==================== REJECT FRIEND REQUEST ====================
+
 export const rejectFriendRequest = async (req, res) => {
   try {
-    const requestUserId = req.params.id;
     const currentUserId = req.id;
+    const requestUserId = req.params.id;
 
-    const currentUser = await User.findById(currentUserId);
-    const requestUser = await User.findById(requestUserId);
+    const friendship = await Friendship.findOne({
+      sender: requestUserId,
+      receiver: currentUserId,
+      type: "friend",
+      status: "pending",
+    });
 
-    if (!currentUser || !requestUser) {
+    if (!friendship) {
       return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    if (!currentUser.friendRequests.includes(requestUserId)) {
-      return res.status(400).json({
         success: false,
         message: "Friend request not found",
       });
     }
 
-    currentUser.friendRequests = currentUser.friendRequests.filter(
-      (id) => id.toString() !== requestUserId.toString()
-    );
+    friendship.status = "rejected";
 
-    requestUser.sentRequests = requestUser.sentRequests.filter(
-      (id) => id.toString() !== currentUserId.toString()
-    );
-
-    await currentUser.save();
-    await requestUser.save();
+    await friendship.save();
 
     return res.status(200).json({
       success: true,
       message: "Friend request rejected successfully",
+      friendship,
     });
   } catch (error) {
     console.log(error);
@@ -508,42 +654,44 @@ export const rejectFriendRequest = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
 
+
+// ==================== UNFRIEND ====================
+
 export const unfriendUser = async (req, res) => {
   try {
-    const targetUserId = req.params.id;
     const currentUserId = req.id;
+    const targetUserId = req.params.id;
 
-    const currentUser = await User.findById(currentUserId);
-    const targetUser = await User.findById(targetUserId);
+    const friendship = await Friendship.findOne({
+      $or: [
+        {
+          sender: currentUserId,
+          receiver: targetUserId,
+        },
+        {
+          sender: targetUserId,
+          receiver: currentUserId,
+        },
+      ],
+      type: "friend",
+      status: "accepted",
+    });
 
-    if (!currentUser || !targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    if (!currentUser.friends.includes(targetUserId)) {
+    if (!friendship) {
       return res.status(400).json({
         success: false,
         message: "You are not friends with this user",
       });
     }
 
-    currentUser.friends = currentUser.friends.filter(
-      (id) => id.toString() !== targetUserId.toString()
+    await Friendship.findByIdAndDelete(
+      friendship._id
     );
-
-    targetUser.friends = targetUser.friends.filter(
-      (id) => id.toString() !== currentUserId.toString()
-    );
-
-    await currentUser.save();
-    await targetUser.save();
 
     return res.status(200).json({
       success: true,
@@ -555,9 +703,13 @@ export const unfriendUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
+
+
+// ==================== SEARCH USERS ====================
 
 export const searchUsers = async (req, res) => {
   try {
@@ -565,9 +717,24 @@ export const searchUsers = async (req, res) => {
 
     const users = await User.find({
       $or: [
-        { firstname: { $regex: search, $options: "i" } },
-        { lastname: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
+        {
+          firstname: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          lastname: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
       ],
     }).select("-password");
 
@@ -581,9 +748,13 @@ export const searchUsers = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
+
+
+// ==================== FOLLOW USER ====================
 
 export const followUser = async (req, res) => {
   try {
@@ -600,42 +771,41 @@ export const followUser = async (req, res) => {
       });
     }
 
-    const currentUser =
-      await User.findById(currentUserId);
+    const targetUser = await User.findById(
+      targetUserId
+    );
 
-    const targetUser =
-      await User.findById(targetUserId);
-
-    if (!currentUser || !targetUser) {
+    if (!targetUser) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
 
-    const alreadyFollowing =
-      currentUser.following.some(
-        (id) =>
-          id.toString() ===
-          targetUserId.toString()
-      );
+    const existingFollow = await Friendship.findOne({
+      sender: currentUserId,
+      receiver: targetUserId,
+      type: "follow",
+    });
 
-    if (alreadyFollowing) {
+    if (existingFollow) {
       return res.status(400).json({
         success: false,
         message: "You are already following this user",
       });
     }
 
-    currentUser.following.push(targetUserId);
-    targetUser.followers.push(currentUserId);
+    const friendship = await Friendship.create({
+      sender: currentUserId,
+      receiver: targetUserId,
+      status: "accepted",
+      type: "follow",
+    });
 
-    await currentUser.save();
-    await targetUser.save();
-
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
       message: "User followed successfully",
+      friendship,
     });
   } catch (error) {
     console.log(error);
@@ -643,44 +813,35 @@ export const followUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
+
+
+// ==================== UNFOLLOW USER ====================
 
 export const unfollowUser = async (req, res) => {
   try {
     const currentUserId = req.id;
     const targetUserId = req.params.id;
 
-    const currentUser =
-      await User.findById(currentUserId);
+    const friendship = await Friendship.findOne({
+      sender: currentUserId,
+      receiver: targetUserId,
+      type: "follow",
+    });
 
-    const targetUser =
-      await User.findById(targetUserId);
-
-    if (!currentUser || !targetUser) {
-      return res.status(404).json({
+    if (!friendship) {
+      return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: "You are not following this user",
       });
     }
 
-    currentUser.following =
-      currentUser.following.filter(
-        (id) =>
-          id.toString() !==
-          targetUserId.toString()
-      );
-
-    targetUser.followers =
-      targetUser.followers.filter(
-        (id) =>
-          id.toString() !==
-          currentUserId.toString()
-      );
-
-    await currentUser.save();
-    await targetUser.save();
+    await Friendship.findByIdAndDelete(
+      friendship._id
+    );
 
     return res.status(200).json({
       success: true,
@@ -692,6 +853,7 @@ export const unfollowUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
     });
   }
 };
