@@ -15,18 +15,12 @@ import {
   rejectFriendRequest,
   unfriendUser,
   searchUsers,
-  followUser,
-  unfollowUser,
 } from "../controllers/auth.controller.js";
 
 import { isAuthenticated } from "../middleware/isAuthenticated.js";
-
 import { upload } from "../middleware/multer.js";
 
 const router = express.Router();
-
-
-// ==================== AUTH ====================
 
 router.post("/register", registerUser);
 
@@ -39,9 +33,6 @@ router.get(
   isAuthenticated,
   getCurrentUser
 );
-
-
-// ==================== PROFILE ====================
 
 router.get(
   "/profile/:id",
@@ -67,9 +58,6 @@ router.put(
   isAuthenticated,
   updateIntro
 );
-
-
-// ==================== FRIEND REQUEST ====================
 
 router.put(
   "/request/send/:id",
@@ -101,29 +89,10 @@ router.put(
   unfriendUser
 );
 
-
-// ==================== FOLLOW ====================
-
-router.put(
-  "/follow/:id",
-  isAuthenticated,
-  followUser
-);
-
-router.put(
-  "/unfollow/:id",
-  isAuthenticated,
-  unfollowUser
-);
-
-
-// ==================== SEARCH ====================
-
 router.get(
   "/search",
   isAuthenticated,
   searchUsers
 );
-
 
 export default router;

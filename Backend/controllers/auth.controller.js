@@ -176,23 +176,11 @@ export const getProfile = async (req, res) => {
       status: "accepted",
     });
 
-    const followers = await Friendship.find({
-      receiver: userId,
-      type: "follow",
-    });
-
-    const following = await Friendship.find({
-      sender: userId,
-      type: "follow",
-    });
-
     return res.status(200).json({
       success: true,
       user,
       bio,
       friendships,
-      followers,
-      following,
       sentRequests,
       receivedRequests,
     });
@@ -427,19 +415,17 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     const existingFriendship = await Friendship.findOne({
-      $or: [
-        {
-          sender: currentUserId,
-          receiver: targetUserId,
-          type: "friend",
-        },
-        {
-          sender: targetUserId,
-          receiver: currentUserId,
-          type: "friend",
-        },
-      ],
-    });
+  $or: [
+    {
+      sender: currentUserId,
+      receiver: targetUserId,
+    },
+    {
+      sender: targetUserId,
+      receiver: currentUserId,
+    },
+  ],
+});
 
     if (existingFriendship) {
       if (existingFriendship.status === "accepted") {
@@ -479,11 +465,10 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     const friendship = await Friendship.create({
-      sender: currentUserId,
-      receiver: targetUserId,
-      status: "pending",
-      type: "friend",
-    });
+  sender: currentUserId,
+  receiver: targetUserId,
+  status: "pending",
+});
 
     return res.status(201).json({
       success: true,
@@ -754,106 +739,3 @@ export const searchUsers = async (req, res) => {
 };
 
 
-// ==================== FOLLOW USER ====================
-
-export const followUser = async (req, res) => {
-  try {
-    const currentUserId = req.id;
-    const targetUserId = req.params.id;
-
-    if (
-      currentUserId.toString() ===
-      targetUserId.toString()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot follow yourself",
-      });
-    }
-
-    const targetUser = await User.findById(
-      targetUserId
-    );
-
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const existingFollow = await Friendship.findOne({
-      sender: currentUserId,
-      receiver: targetUserId,
-      type: "follow",
-    });
-
-    if (existingFollow) {
-      return res.status(400).json({
-        success: false,
-        message: "You are already following this user",
-      });
-    }
-
-    const friendship = await Friendship.create({
-      sender: currentUserId,
-      receiver: targetUserId,
-      status: "accepted",
-      type: "follow",
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "User followed successfully",
-      friendship,
-    });
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
-  }
-};
-
-
-// ==================== UNFOLLOW USER ====================
-
-export const unfollowUser = async (req, res) => {
-  try {
-    const currentUserId = req.id;
-    const targetUserId = req.params.id;
-
-    const friendship = await Friendship.findOne({
-      sender: currentUserId,
-      receiver: targetUserId,
-      type: "follow",
-    });
-
-    if (!friendship) {
-      return res.status(400).json({
-        success: false,
-        message: "You are not following this user",
-      });
-    }
-
-    await Friendship.findByIdAndDelete(
-      friendship._id
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "User unfollowed successfully",
-    });
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
-  }
-};

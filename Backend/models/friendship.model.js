@@ -19,12 +19,6 @@ const friendshipSchema = new mongoose.Schema(
       enum: ["pending", "accepted", "rejected"],
       default: "pending",
     },
-
-    type: {
-      type: String,
-      enum: ["friend", "follow"],
-      default: "friend",
-    },
   },
   {
     timestamps: true,
@@ -32,7 +26,7 @@ const friendshipSchema = new mongoose.Schema(
 );
 
 friendshipSchema.index(
-  { sender: 1, receiver: 1, type: 1 },
+  { sender: 1, receiver: 1 },
   { unique: true }
 );
 
