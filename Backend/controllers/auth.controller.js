@@ -1,3 +1,4 @@
+
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -5,7 +6,6 @@ import getDataUri from "../utils/dataUri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Bio } from "../models/userbio.model.js";
 import Friendship from "../models/friendship.model.js";
-
 
 // ==================== REGISTER ====================
 
@@ -56,7 +56,6 @@ export const registerUser = async (req, res) => {
     });
   }
 };
-
 
 // ==================== LOGIN ====================
 
@@ -116,17 +115,19 @@ export const loginUser = async (req, res) => {
   }
 };
 
-
 // ==================== LOGOUT ====================
 
 export const logoutUser = async (_, res) => {
   try {
-    return res.status(200).cookie("token", "", {
-      maxAge: 0,
-    }).json({
-      success: true,
-      message: "User logged out successfully",
-    });
+    return res
+      .status(200)
+      .cookie("token", "", {
+        maxAge: 0,
+      })
+      .json({
+        success: true,
+        message: "User logged out successfully",
+      });
   } catch (error) {
     console.log(error);
 
@@ -136,7 +137,6 @@ export const logoutUser = async (_, res) => {
     });
   }
 };
-
 
 // ==================== GET PROFILE ====================
 
@@ -159,22 +159,35 @@ export const getProfile = async (req, res) => {
 
     const sentRequests = await Friendship.find({
       sender: userId,
-      type: "friend",
-    });
+      status: "pending",
+    }).populate(
+      "receiver",
+      "firstname lastname email profilePicture"
+    );
 
     const receivedRequests = await Friendship.find({
       receiver: userId,
-      type: "friend",
-    });
+      status: "pending",
+    }).populate(
+      "sender",
+      "firstname lastname email profilePicture"
+    );
 
     const friendships = await Friendship.find({
       $or: [
         { sender: userId },
         { receiver: userId },
       ],
-      type: "friend",
       status: "accepted",
-    });
+    })
+      .populate(
+        "sender",
+        "firstname lastname email profilePicture"
+      )
+      .populate(
+        "receiver",
+        "firstname lastname email profilePicture"
+      );
 
     return res.status(200).json({
       success: true,
@@ -194,7 +207,6 @@ export const getProfile = async (req, res) => {
     });
   }
 };
-
 
 // ==================== UPDATE PROFILE PHOTO ====================
 
@@ -240,7 +252,6 @@ export const updateProfilePhoto = async (req, res) => {
   }
 };
 
-
 // ==================== UPDATE COVER PHOTO ====================
 
 export const updateCoverPhoto = async (req, res) => {
@@ -284,7 +295,6 @@ export const updateCoverPhoto = async (req, res) => {
     });
   }
 };
-
 
 // ==================== UPDATE BIO ====================
 
@@ -358,7 +368,6 @@ export const updateIntro = async (req, res) => {
   }
 };
 
-
 // ==================== GET CURRENT USER ====================
 
 export const getCurrentUser = async (req, res) => {
@@ -387,7 +396,6 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-
 // ==================== SEND FRIEND REQUEST ====================
 
 export const sendFriendRequest = async (req, res) => {
@@ -415,17 +423,17 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     const existingFriendship = await Friendship.findOne({
-  $or: [
-    {
-      sender: currentUserId,
-      receiver: targetUserId,
-    },
-    {
-      sender: targetUserId,
-      receiver: currentUserId,
-    },
-  ],
-});
+      $or: [
+        {
+          sender: currentUserId,
+          receiver: targetUserId,
+        },
+        {
+          sender: targetUserId,
+          receiver: currentUserId,
+        },
+      ],
+    });
 
     if (existingFriendship) {
       if (existingFriendship.status === "accepted") {
@@ -453,7 +461,8 @@ export const sendFriendRequest = async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "This user has already sent you a friend request",
+          message:
+            "This user has already sent you a friend request",
         });
       }
 
@@ -465,10 +474,10 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     const friendship = await Friendship.create({
-  sender: currentUserId,
-  receiver: targetUserId,
-  status: "pending",
-});
+      sender: currentUserId,
+      receiver: targetUserId,
+      status: "pending",
+    });
 
     return res.status(201).json({
       success: true,
@@ -486,7 +495,6 @@ export const sendFriendRequest = async (req, res) => {
   }
 };
 
-
 // ==================== GET FRIEND REQUESTS ====================
 
 export const getFriendRequests = async (req, res) => {
@@ -495,7 +503,6 @@ export const getFriendRequests = async (req, res) => {
 
     const requests = await Friendship.find({
       receiver: currentUserId,
-      type: "friend",
       status: "pending",
     })
       .populate(
@@ -508,7 +515,6 @@ export const getFriendRequests = async (req, res) => {
 
     const sentRequests = await Friendship.find({
       sender: currentUserId,
-      type: "friend",
       status: "pending",
     })
       .populate(
@@ -528,7 +534,6 @@ export const getFriendRequests = async (req, res) => {
           receiver: currentUserId,
         },
       ],
-      type: "friend",
       status: "accepted",
     })
       .populate(
@@ -560,7 +565,6 @@ export const getFriendRequests = async (req, res) => {
   }
 };
 
-
 // ==================== ACCEPT FRIEND REQUEST ====================
 
 export const acceptFriendRequest = async (req, res) => {
@@ -571,7 +575,6 @@ export const acceptFriendRequest = async (req, res) => {
     const friendship = await Friendship.findOne({
       sender: requestUserId,
       receiver: currentUserId,
-      type: "friend",
       status: "pending",
     });
 
@@ -602,7 +605,6 @@ export const acceptFriendRequest = async (req, res) => {
   }
 };
 
-
 // ==================== REJECT FRIEND REQUEST ====================
 
 export const rejectFriendRequest = async (req, res) => {
@@ -613,7 +615,6 @@ export const rejectFriendRequest = async (req, res) => {
     const friendship = await Friendship.findOne({
       sender: requestUserId,
       receiver: currentUserId,
-      type: "friend",
       status: "pending",
     });
 
@@ -644,7 +645,6 @@ export const rejectFriendRequest = async (req, res) => {
   }
 };
 
-
 // ==================== UNFRIEND ====================
 
 export const unfriendUser = async (req, res) => {
@@ -663,7 +663,6 @@ export const unfriendUser = async (req, res) => {
           receiver: currentUserId,
         },
       ],
-      type: "friend",
       status: "accepted",
     });
 
@@ -692,7 +691,6 @@ export const unfriendUser = async (req, res) => {
     });
   }
 };
-
 
 // ==================== SEARCH USERS ====================
 
@@ -737,5 +735,4 @@ export const searchUsers = async (req, res) => {
     });
   }
 };
-
 

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import emptyCover from "../assets/emptyCover.jpg";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,12 @@ import axios from "axios";
 const Profile = () => {
   const [open, setOpen] = useState(false);
 
+  const [relationData, setRelationData] = useState({
+    friendships: [],
+    sentRequests: [],
+    receivedRequests: [],
+  });
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const params = useParams();
@@ -49,8 +56,10 @@ const Profile = () => {
   const isOwner =
     user?._id?.toString() === userProfile?._id?.toString();
 
-  const friendshipList =
-    userProfile?.friendships || [];
+  const currentUserId = user?._id?.toString();
+  const profileUserId = userProfile?._id?.toString();
+
+  const friendshipList = relationData.friendships || [];
 
   const isFriend = friendshipList.some((friendship) => {
     const senderId =
@@ -61,21 +70,18 @@ const Profile = () => {
       friendship?.receiver?._id?.toString() ||
       friendship?.receiver?.toString();
 
-    const currentProfileId =
-      userProfile?._id?.toString();
-
     return (
       friendship?.status === "accepted" &&
-      (senderId === currentProfileId ||
-        receiverId === currentProfileId)
+      ((senderId === currentUserId &&
+        receiverId === profileUserId) ||
+        (senderId === profileUserId &&
+          receiverId === currentUserId))
     );
   });
 
-  const sentRequests =
-    userProfile?.sentRequests || [];
+  const sentRequests = relationData.sentRequests || [];
 
-  const receivedRequests =
-    userProfile?.receivedRequests || [];
+  const receivedRequests = relationData.receivedRequests || [];
 
   const hasSentRequest = sentRequests.some((request) => {
     const receiverId =
@@ -83,7 +89,7 @@ const Profile = () => {
       request?.receiver?.toString();
 
     return (
-      receiverId === userProfile?._id?.toString() &&
+      receiverId === profileUserId &&
       request?.status === "pending"
     );
   });
@@ -94,7 +100,7 @@ const Profile = () => {
       request?.sender?.toString();
 
     return (
-      senderId === userProfile?._id?.toString() &&
+      senderId === profileUserId &&
       request?.status === "pending"
     );
   });
@@ -110,10 +116,13 @@ const Profile = () => {
 
       if (res.data.success) {
         dispatch(setUser(res.data.user));
+        return res.data.user;
       }
     } catch (error) {
       console.log(error);
     }
+
+    return null;
   };
 
   const fetchUserProfile = async () => {
@@ -147,11 +156,41 @@ const Profile = () => {
     }
   };
 
+  const fetchRelationData = async (currentUser) => {
+    try {
+      if (!currentUser?._id) return;
+
+      const res = await axios.get(
+        `http://localhost:9000/api/v1/auth/profile/${currentUser._id}`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (res.data.success) {
+        setRelationData({
+          friendships: res.data.friendships || [],
+          sentRequests: res.data.sentRequests || [],
+          receivedRequests:
+            res.data.receivedRequests || [],
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const refreshRelationData = async () => {
-    await Promise.all([
-      fetchCurrentUser(),
-      fetchUserProfile(),
-    ]);
+    try {
+      const currentUser = await fetchCurrentUser();
+
+      await Promise.all([
+        fetchUserProfile(),
+        fetchRelationData(currentUser),
+      ]);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const handelProfilePicChange = async (e) => {
@@ -368,11 +407,20 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (params.id) {
-      fetchCurrentUser();
-      fetchUserProfile();
+    const loadProfile = async () => {
+      if (!params.id) return;
+
       window.scrollTo(0, 0);
-    }
+
+      const currentUser = await fetchCurrentUser();
+
+      await Promise.all([
+        fetchUserProfile(),
+        fetchRelationData(currentUser),
+      ]);
+    };
+
+    loadProfile();
   }, [params.id]);
 
   return (
@@ -558,64 +606,62 @@ const Profile = () => {
               </>
             )}
 
-            {!isOwner &&
-              hasReceivedRequest && (
-                <>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="bg-[#0866ff] text-white hover:bg-[#0867ffd2] cursor-pointer">
-                        <FaUserCheck />
-                        Respond
-                      </Button>
-                    </DropdownMenuTrigger>
+            {!isOwner && hasReceivedRequest && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="bg-[#0866ff] text-white hover:bg-[#0867ffd2] cursor-pointer">
+                      <FaUserCheck />
+                      Respond
+                    </Button>
+                  </DropdownMenuTrigger>
 
-                    <DropdownMenuContent className="w-[200px]">
-                      <DropdownMenuItem
-                        onClick={() =>
-                          acceptFriendRequest(
-                            userProfile?._id
-                          )
-                        }
-                      >
-                        Confirm
-                      </DropdownMenuItem>
+                  <DropdownMenuContent className="w-[200px]">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        acceptFriendRequest(
+                          userProfile?._id
+                        )
+                      }
+                    >
+                      Confirm
+                    </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        onClick={() =>
-                          rejectFriendRequest(
-                            userProfile?._id
-                          )
-                        }
-                      >
-                        Delete Request
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        rejectFriendRequest(
+                          userProfile?._id
+                        )
+                      }
+                    >
+                      Delete Request
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                  <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                    <FaFacebookMessenger />
-                    Message
-                  </Button>
-                </>
-              )}
+                <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
+                  <FaFacebookMessenger />
+                  Message
+                </Button>
+              </>
+            )}
 
-            {!isOwner &&
-              hasSentRequest && (
-                <>
-                  <Button
-                    disabled
-                    className="bg-[#e1e4e8] text-gray-800 dark:bg-[#3a3c3d] dark:text-gray-200 cursor-not-allowed"
-                  >
-                    <FaUserCheck />
-                    Request Sent
-                  </Button>
+            {!isOwner && hasSentRequest && (
+              <>
+                <Button
+                  disabled
+                  className="bg-[#e1e4e8] text-gray-800 dark:bg-[#3a3c3d] dark:text-gray-200 cursor-not-allowed"
+                >
+                  <FaUserCheck />
+                  Request Sent
+                </Button>
 
-                  <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                    <FaFacebookMessenger />
-                    Message
-                  </Button>
-                </>
-              )}
+                <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
+                  <FaFacebookMessenger />
+                  Message
+                </Button>
+              </>
+            )}
 
             {!isOwner &&
               !isFriend &&
@@ -698,3 +744,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

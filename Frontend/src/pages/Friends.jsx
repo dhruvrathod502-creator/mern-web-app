@@ -275,14 +275,14 @@ const Friends = () => {
 
                     <div className="flex flex-col gap-2">
                       <Button
-                        onClick={() => acceptFriendRequest(friend._id)}
+                        onClick={() => acceptFriendRequest(friend.sender._id)}
                         className="h-10 w-full rounded-lg bg-[#0866ff] font-semibold text-white hover:bg-[#075ce5]"
                       >
                         Confirm
                       </Button>
 
                       <Button
-                        onClick={() => rejectFriendRequest(friend._id)}
+                        onClick={() => rejectFriendRequest(friend.sender._id)}
                         className="h-10 w-full rounded-lg bg-gray-200 font-semibold text-gray-800 hover:bg-gray-300 dark:bg-[#3a3b3c] dark:text-white dark:hover:bg-[#4e4f50]"
                       >
                         Delete
@@ -308,8 +308,6 @@ const Friends = () => {
             </div>
           )}
         </section>
-
-        
       </main>
     </div>
   );
