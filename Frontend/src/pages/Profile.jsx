@@ -1,35 +1,35 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import emptyCover from "../assets/emptyCover.jpg";
+import userLogo from "../assets/user.jpg";
 import { Button } from "@/components/ui/button";
-import { FaCamera, FaFacebookMessenger, FaUserPlus } from "react-icons/fa";
-import { FaUserCheck } from "react-icons/fa6";
+import {
+  FaCamera,
+  FaFacebookMessenger,
+  FaUserPlus,
+  FaUserCheck,
+} from "react-icons/fa";
 import { FiUserX } from "react-icons/fi";
 import { toast } from "sonner";
-import userLogo from "../assets/user.jpg";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { Edit, Images, SquareUser } from "lucide-react";
 import { MdDashboard } from "react-icons/md";
-
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import { useDispatch, useSelector } from "react-redux";
 import { setLoading, setUser, setUserProfile } from "@/redux/authSlice";
-
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
+
+const API = "http://localhost:9000/api/v1/auth";
 
 const Profile = () => {
   const [open, setOpen] = useState(false);
@@ -44,82 +44,64 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
 
-  const { loading, user, userProfile } = useSelector(
-    (store) => store.auth
-  );
+  const { loading, user, userProfile } = useSelector((store) => store.auth);
 
-  const coverPhoto = userProfile?.coverPhoto || emptyCover;
+  const profile = userProfile?.profile || {};
+  const coverPhoto = profile.coverPhoto || emptyCover;
+  const profilePicture = profile.profilePicture || userLogo;
 
-  const profileRef = useRef();
-  const coverRef = useRef();
+  const profileRef = useRef(null);
+  const coverRef = useRef(null);
 
-  const isOwner =
-    user?._id?.toString() === userProfile?._id?.toString();
+  const isOwner = user?._id?.toString() === userProfile?._id?.toString();
 
   const currentUserId = user?._id?.toString();
   const profileUserId = userProfile?._id?.toString();
 
   const friendshipList = relationData.friendships || [];
+  const sentRequests = relationData.sentRequests || [];
+  const receivedRequests = relationData.receivedRequests || [];
 
   const isFriend = friendshipList.some((friendship) => {
     const senderId =
-      friendship?.sender?._id?.toString() ||
-      friendship?.sender?.toString();
+      friendship?.sender?._id?.toString() || friendship?.sender?.toString();
 
     const receiverId =
-      friendship?.receiver?._id?.toString() ||
-      friendship?.receiver?.toString();
+      friendship?.receiver?._id?.toString() || friendship?.receiver?.toString();
 
     return (
       friendship?.status === "accepted" &&
-      ((senderId === currentUserId &&
-        receiverId === profileUserId) ||
-        (senderId === profileUserId &&
-          receiverId === currentUserId))
+      ((senderId === currentUserId && receiverId === profileUserId) ||
+        (senderId === profileUserId && receiverId === currentUserId))
     );
   });
 
-  const sentRequests = relationData.sentRequests || [];
-
-  const receivedRequests = relationData.receivedRequests || [];
-
   const hasSentRequest = sentRequests.some((request) => {
     const receiverId =
-      request?.receiver?._id?.toString() ||
-      request?.receiver?.toString();
+      request?.receiver?._id?.toString() || request?.receiver?.toString();
 
-    return (
-      receiverId === profileUserId &&
-      request?.status === "pending"
-    );
+    return receiverId === profileUserId && request?.status === "pending";
   });
 
   const hasReceivedRequest = receivedRequests.some((request) => {
     const senderId =
-      request?.sender?._id?.toString() ||
-      request?.sender?.toString();
+      request?.sender?._id?.toString() || request?.sender?.toString();
 
-    return (
-      senderId === profileUserId &&
-      request?.status === "pending"
-    );
+    return senderId === profileUserId && request?.status === "pending";
   });
 
   const fetchCurrentUser = async () => {
     try {
-      const res = await axios.get(
-        "http://localhost:9000/api/v1/auth/me",
-        {
-          withCredentials: true,
-        }
-      );
+      const res = await axios.get(`${API}/me`, {
+        withCredentials: true,
+      });
 
       if (res.data.success) {
         dispatch(setUser(res.data.user));
         return res.data.user;
       }
     } catch (error) {
-      console.log(error);
+      console.log("Fetch current user error:", error);
     }
 
     return null;
@@ -127,32 +109,26 @@ const Profile = () => {
 
   const fetchUserProfile = async () => {
     try {
-      const res = await axios.get(
-        `http://localhost:9000/api/v1/auth/profile/${params.id}`,
-        {
-          withCredentials: true,
-        }
-      );
+      const res = await axios.get(`${API}/profile/${params.id}`, {
+        withCredentials: true,
+      });
 
       if (res.data.success) {
         dispatch(
           setUserProfile({
             ...res.data.user,
-            bio: res.data.bio,
+            profile: res.data.profile || {},
+            bio: res.data.bio || null,
             friendships: res.data.friendships || [],
             sentRequests: res.data.sentRequests || [],
-            receivedRequests:
-              res.data.receivedRequests || [],
-          })
+            receivedRequests: res.data.receivedRequests || [],
+          }),
         );
       }
     } catch (error) {
-      console.log(error);
+      console.log("Fetch profile error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to load profile"
-      );
+      toast.error(error.response?.data?.message || "Failed to load profile");
     }
   };
 
@@ -160,23 +136,19 @@ const Profile = () => {
     try {
       if (!currentUser?._id) return;
 
-      const res = await axios.get(
-        `http://localhost:9000/api/v1/auth/profile/${currentUser._id}`,
-        {
-          withCredentials: true,
-        }
-      );
+      const res = await axios.get(`${API}/profile/${currentUser._id}`, {
+        withCredentials: true,
+      });
 
       if (res.data.success) {
         setRelationData({
           friendships: res.data.friendships || [],
           sentRequests: res.data.sentRequests || [],
-          receivedRequests:
-            res.data.receivedRequests || [],
+          receivedRequests: res.data.receivedRequests || [],
         });
       }
     } catch (error) {
-      console.log(error);
+      console.log("Fetch relationship data error:", error);
     }
   };
 
@@ -184,12 +156,9 @@ const Profile = () => {
     try {
       const currentUser = await fetchCurrentUser();
 
-      await Promise.all([
-        fetchUserProfile(),
-        fetchRelationData(currentUser),
-      ]);
+      await Promise.all([fetchUserProfile(), fetchRelationData(currentUser)]);
     } catch (error) {
-      console.log(error);
+      console.log("Refresh relationship data error:", error);
     }
   };
 
@@ -204,49 +173,37 @@ const Profile = () => {
     try {
       dispatch(setLoading(true));
 
-      const res = await axios.put(
-        "http://localhost:9000/api/v1/auth/update/profile-pic",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          withCredentials: true,
-        }
-      );
+      const res = await axios.put(`${API}/update/profile-pic`, formData, {
+        withCredentials: true,
+      });
 
       if (res.data.success) {
-        toast.success(res.data.message);
-
-        const profilePicture =
-          res.data.profilePicture;
-
-        dispatch(
-          setUser({
-            ...user,
-            profilePicture,
-          })
-        );
+        const newProfilePicture = res.data.profilePicture;
 
         dispatch(
           setUserProfile({
             ...userProfile,
-            profilePicture,
-          })
+            profile: {
+              ...userProfile?.profile,
+              profilePicture: newProfilePicture,
+            },
+          }),
         );
+
+        toast.success(res.data.message || "Profile picture updated");
       }
     } catch (error) {
-      console.error(
-        "Error uploading profile picture",
-        error
-      );
+      console.error("Profile picture upload error:", error);
 
       toast.error(
-        error.response?.data?.message ||
-          "Failed to update profile picture"
+        error.response?.data?.message || "Failed to update profile picture",
       );
     } finally {
       dispatch(setLoading(false));
+
+      if (profileRef.current) {
+        profileRef.current.value = "";
+      }
     }
   };
 
@@ -261,148 +218,121 @@ const Profile = () => {
     try {
       dispatch(setLoading(true));
 
-      const res = await axios.put(
-        "http://localhost:9000/api/v1/auth/update/cover-pic",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          withCredentials: true,
-        }
-      );
+      const res = await axios.put(`${API}/update/cover-pic`, formData, {
+        withCredentials: true,
+      });
 
       if (res.data.success) {
-        toast.success(res.data.message);
-
-        const coverPhoto = res.data.coverPhoto;
-
-        dispatch(
-          setUser({
-            ...user,
-            coverPhoto,
-          })
-        );
+        const newCoverPhoto = res.data.coverPhoto;
 
         dispatch(
           setUserProfile({
             ...userProfile,
-            coverPhoto,
-          })
+            profile: {
+              ...userProfile?.profile,
+              coverPhoto: newCoverPhoto,
+            },
+          }),
         );
+
+        toast.success(res.data.message || "Cover photo updated");
       }
     } catch (error) {
-      console.error(
-        "Error uploading cover picture",
-        error
-      );
+      console.error("Cover photo upload error:", error);
 
       toast.error(
-        error.response?.data?.message ||
-          "Failed to update cover picture"
+        error.response?.data?.message || "Failed to update cover photo",
       );
     } finally {
       dispatch(setLoading(false));
+
+      if (coverRef.current) {
+        coverRef.current.value = "";
+      }
     }
   };
 
   const sendFriendRequest = async (id) => {
     try {
       const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/request/send/${id}`,
+        `${API}/request/send/${id}`,
         {},
         {
           withCredentials: true,
-        }
+        },
       );
 
       if (res.data.success) {
         await refreshRelationData();
-
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Send friend request error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Something went wrong"
-      );
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
   };
 
   const acceptFriendRequest = async (id) => {
     try {
       const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/request/accept/${id}`,
+        `${API}/request/accept/${id}`,
         {},
         {
           withCredentials: true,
-        }
+        },
       );
 
       if (res.data.success) {
         await refreshRelationData();
-
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Accept friend request error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Something went wrong"
-      );
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
   };
 
   const rejectFriendRequest = async (id) => {
     try {
       const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/request/reject/${id}`,
+        `${API}/request/reject/${id}`,
         {},
         {
           withCredentials: true,
-        }
+        },
       );
 
       if (res.data.success) {
         await refreshRelationData();
-
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Reject friend request error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Something went wrong"
-      );
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
   };
 
   const unFriendUser = async (id) => {
     try {
       const res = await axios.put(
-        `http://localhost:9000/api/v1/auth/request/unfriend/${id}`,
+        `${API}/request/unfriend/${id}`,
         {},
         {
           withCredentials: true,
-        }
+        },
       );
 
       if (res.data.success) {
         await refreshRelationData();
-
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Unfriend error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Something went wrong"
-      );
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
   };
 
@@ -414,10 +344,7 @@ const Profile = () => {
 
       const currentUser = await fetchCurrentUser();
 
-      await Promise.all([
-        fetchUserProfile(),
-        fetchRelationData(currentUser),
-      ]);
+      await Promise.all([fetchUserProfile(), fetchRelationData(currentUser)]);
     };
 
     loadProfile();
@@ -452,6 +379,7 @@ const Profile = () => {
 
           <input
             type="file"
+            accept="image/*"
             className="hidden"
             ref={coverRef}
             onChange={handelCoverPicChange}
@@ -459,9 +387,7 @@ const Profile = () => {
 
           {isOwner && (
             <Button
-              onClick={() =>
-                coverRef?.current?.click()
-              }
+              onClick={() => coverRef.current?.click()}
               className="absolute right-3 md:right-52 bottom-3 flex gap-2 items-center bg-white text-gray-800 hover:bg-gray-100"
             >
               <FaCamera />
@@ -476,6 +402,7 @@ const Profile = () => {
           <div className="flex flex-col md:flex-row md:gap-5 md:items-center relative">
             <input
               type="file"
+              accept="image/*"
               className="hidden"
               ref={profileRef}
               onChange={handelProfilePicChange}
@@ -484,10 +411,7 @@ const Profile = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <img
-                  src={
-                    userProfile?.profilePicture ||
-                    userLogo
-                  }
+                  src={profilePicture}
                   alt="profile"
                   className="w-44 h-44 cursor-pointer rounded-full border-4 border-white dark:border-[#262829] object-cover z-30 -mt-16"
                 />
@@ -504,9 +428,7 @@ const Profile = () => {
 
                 {isOwner && (
                   <DropdownMenuItem
-                    onClick={() =>
-                      profileRef?.current?.click()
-                    }
+                    onClick={() => profileRef.current?.click()}
                     className="flex gap-2 items-center"
                   >
                     <Images />
@@ -516,24 +438,17 @@ const Profile = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Dialog
-              open={open}
-              onOpenChange={setOpen}
-            >
+            <Dialog open={open} onOpenChange={setOpen}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle className="text-center">
                     Profile Picture
                   </DialogTitle>
-
                   <hr className="mt-3" />
                 </DialogHeader>
 
                 <img
-                  src={
-                    userProfile?.profilePicture ||
-                    userLogo
-                  }
+                  src={profilePicture}
                   alt="Profile Picture"
                   className="rounded-lg object-cover w-full"
                 />
@@ -542,9 +457,7 @@ const Profile = () => {
 
             {isOwner && (
               <span
-                onClick={() =>
-                  profileRef?.current?.click()
-                }
+                onClick={() => profileRef.current?.click()}
                 className="bg-gray-200 absolute z-40 left-32 cursor-pointer bottom-20 md:bottom-5 dark:bg-[#3a3c3d] p-2 rounded-full"
               >
                 <FaCamera className="h-5 w-5" />
@@ -553,8 +466,7 @@ const Profile = () => {
 
             <div>
               <h1 className="text-3xl font-bold">
-                {userProfile?.firstname}{" "}
-                {userProfile?.lastname}
+                {userProfile?.firstname} {userProfile?.lastname}
               </h1>
             </div>
           </div>
@@ -586,11 +498,7 @@ const Profile = () => {
 
                   <DropdownMenuContent className="w-[200px]">
                     <DropdownMenuItem
-                      onClick={() =>
-                        unFriendUser(
-                          userProfile?._id
-                        )
-                      }
+                      onClick={() => unFriendUser(userProfile?._id)}
                       className="flex gap-2 items-center"
                     >
                       <FiUserX />
@@ -618,21 +526,13 @@ const Profile = () => {
 
                   <DropdownMenuContent className="w-[200px]">
                     <DropdownMenuItem
-                      onClick={() =>
-                        acceptFriendRequest(
-                          userProfile?._id
-                        )
-                      }
+                      onClick={() => acceptFriendRequest(userProfile?._id)}
                     >
                       Confirm
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
-                      onClick={() =>
-                        rejectFriendRequest(
-                          userProfile?._id
-                        )
-                      }
+                      onClick={() => rejectFriendRequest(userProfile?._id)}
                     >
                       Delete Request
                     </DropdownMenuItem>
@@ -669,11 +569,7 @@ const Profile = () => {
               !hasReceivedRequest && (
                 <>
                   <Button
-                    onClick={() =>
-                      sendFriendRequest(
-                        userProfile?._id
-                      )
-                    }
+                    onClick={() => sendFriendRequest(userProfile?._id)}
                     className="bg-[#e1e4e8] hover:bg-[#e1e7ef] cursor-pointer dark:bg-[#3a3c3d] text-gray-800 dark:text-gray-200"
                   >
                     <FaUserPlus />
@@ -693,44 +589,28 @@ const Profile = () => {
 
         <div className="flex md:gap-10 max-w-6xl mx-auto md:px-10">
           <span
-            onClick={() =>
-              navigate(
-                `/profile/${userProfile?._id}/post`
-              )
-            }
+            onClick={() => navigate(`/profile/${userProfile?._id}/post`)}
             className="hover:bg-[#e1e4e8] dark:hover:bg-[#3a3c3d] px-4 py-2 rounded-lg text-lg font-semibold dark:text-gray-300 text-gray-800 cursor-pointer"
           >
             Post
           </span>
 
           <span
-            onClick={() =>
-              navigate(
-                `/profile/${userProfile?._id}/about`
-              )
-            }
+            onClick={() => navigate(`/profile/${userProfile?._id}/about`)}
             className="hover:bg-[#e1e4e8] dark:hover:bg-[#3a3c3d] px-4 py-2 rounded-lg text-lg font-semibold dark:text-gray-300 text-gray-800 cursor-pointer"
           >
             About
           </span>
 
           <span
-            onClick={() =>
-              navigate(
-                `/profile/${userProfile?._id}/friends`
-              )
-            }
+            onClick={() => navigate(`/profile/${userProfile?._id}/friends`)}
             className="hover:bg-[#e1e4e8] dark:hover:bg-[#3a3c3d] px-4 py-2 rounded-lg text-lg font-semibold dark:text-gray-300 text-gray-800 cursor-pointer"
           >
             Friends
           </span>
 
           <span
-            onClick={() =>
-              navigate(
-                `/profile/${userProfile?._id}/photos`
-              )
-            }
+            onClick={() => navigate(`/profile/${userProfile?._id}/photos`)}
             className="hover:bg-[#e1e4e8] dark:hover:bg-[#3a3c3d] px-4 py-2 rounded-lg text-lg font-semibold dark:text-gray-300 text-gray-800 cursor-pointer"
           >
             Photos
@@ -744,4 +624,3 @@ const Profile = () => {
 };
 
 export default Profile;
-

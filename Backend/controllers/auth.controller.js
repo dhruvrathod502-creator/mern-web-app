@@ -6,6 +6,8 @@ import getDataUri from "../utils/dataUri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Bio } from "../models/userbio.model.js";
 import Friendship from "../models/friendship.model.js";
+import Profile from "../models/profile.model.js";
+
 
 // ==================== REGISTER ====================
 
@@ -153,45 +155,37 @@ export const getProfile = async (req, res) => {
       });
     }
 
-    const bio = await Bio.findOne({
-      user: userId,
-    });
+    const [profile, bio, sentRequests, receivedRequests, friendships] =
+      await Promise.all([
+        Profile.findOne({ user: userId }),
 
-    const sentRequests = await Friendship.find({
-      sender: userId,
-      status: "pending",
-    }).populate(
-      "receiver",
-      "firstname lastname email profilePicture"
-    );
+        Bio.findOne({ user: userId }),
 
-    const receivedRequests = await Friendship.find({
-      receiver: userId,
-      status: "pending",
-    }).populate(
-      "sender",
-      "firstname lastname email profilePicture"
-    );
+        Friendship.find({
+          sender: userId,
+          status: "pending",
+        }).populate("receiver", "firstname lastname email"),
 
-    const friendships = await Friendship.find({
-      $or: [
-        { sender: userId },
-        { receiver: userId },
-      ],
-      status: "accepted",
-    })
-      .populate(
-        "sender",
-        "firstname lastname email profilePicture"
-      )
-      .populate(
-        "receiver",
-        "firstname lastname email profilePicture"
-      );
+        Friendship.find({
+          receiver: userId,
+          status: "pending",
+        }).populate("sender", "firstname lastname email"),
+
+        Friendship.find({
+          $or: [
+            { sender: userId },
+            { receiver: userId },
+          ],
+          status: "accepted",
+        })
+          .populate("sender", "firstname lastname email")
+          .populate("receiver", "firstname lastname email"),
+      ]);
 
     return res.status(200).json({
       success: true,
       user,
+      profile,
       bio,
       friendships,
       sentRequests,
@@ -208,8 +202,6 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// ==================== UPDATE PROFILE PHOTO ====================
-
 export const updateProfilePhoto = async (req, res) => {
   try {
     const userId = req.id;
@@ -223,23 +215,22 @@ export const updateProfilePhoto = async (req, res) => {
     }
 
     const fileUri = getDataUri(file);
-
     const result = await cloudinary.uploader.upload(fileUri);
 
-    const user = await User.findByIdAndUpdate(
-      userId,
+    const profile = await Profile.findOneAndUpdate(
+      { user: userId },
+      { $set: { profilePicture: result.secure_url } },
       {
-        profilePicture: result.secure_url,
-      },
-      {
-        returnDocument: "after",
+        new: true,
+        upsert: true,
+        runValidators: true,
       }
     );
 
     return res.status(200).json({
       success: true,
       message: "Profile photo updated successfully",
-      profilePicture: user.profilePicture,
+      profilePicture: profile.profilePicture,
     });
   } catch (error) {
     console.log(error);
@@ -251,8 +242,6 @@ export const updateProfilePhoto = async (req, res) => {
     });
   }
 };
-
-// ==================== UPDATE COVER PHOTO ====================
 
 export const updateCoverPhoto = async (req, res) => {
   try {
@@ -267,23 +256,22 @@ export const updateCoverPhoto = async (req, res) => {
     }
 
     const fileUri = getDataUri(file);
-
     const result = await cloudinary.uploader.upload(fileUri);
 
-    const user = await User.findByIdAndUpdate(
-      userId,
+    const profile = await Profile.findOneAndUpdate(
+      { user: userId },
+      { $set: { coverPhoto: result.secure_url } },
       {
-        coverPhoto: result.secure_url,
-      },
-      {
-        returnDocument: "after",
+        new: true,
+        upsert: true,
+        runValidators: true,
       }
     );
 
     return res.status(200).json({
       success: true,
       message: "Cover photo updated successfully",
-      coverPhoto: user.coverPhoto,
+      coverPhoto: profile.coverPhoto,
     });
   } catch (error) {
     console.log(error);
@@ -372,7 +360,9 @@ export const updateIntro = async (req, res) => {
 
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.id).select("-password");
+    const userId = req.id;
+
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -381,12 +371,19 @@ export const getCurrentUser = async (req, res) => {
       });
     }
 
+    const profile = await Profile.findOne({
+      user: userId,
+    }).lean();
+
     return res.status(200).json({
       success: true,
-      user,
+      user: {
+        ...user.toObject(),
+        profile: profile || {},
+      },
     });
   } catch (error) {
-    console.log(error);
+    console.log("Get current user error:", error);
 
     return res.status(500).json({
       success: false,

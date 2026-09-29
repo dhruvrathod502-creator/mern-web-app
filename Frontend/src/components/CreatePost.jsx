@@ -104,7 +104,7 @@ const CreatePost = () => {
       {/* Top Section */}
       <div className="flex items-center gap-3">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={user?.profilePicture || userLogo} />
+          <AvatarImage src={user?.profile?.profilePicture || userLogo} />
           <AvatarFallback>CN</AvatarFallback>
         </Avatar>
 
@@ -141,7 +141,7 @@ const CreatePost = () => {
 
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={user?.profilePicture || userLogo} />
+                  <AvatarImage src={user?.profile?.profilePicture || userLogo} />
                   <AvatarFallback>CN</AvatarFallback>
                 </Avatar>
 

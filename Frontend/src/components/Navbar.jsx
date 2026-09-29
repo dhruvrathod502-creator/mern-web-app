@@ -4,28 +4,23 @@ import {
   FaSearch,
   FaHome,
   FaUserFriends,
-  FaBell,
-  FaMoon,
-  FaSun,
 } from "react-icons/fa";
 import { MdLogout } from "react-icons/md";
-import { IoMdMenu } from "react-icons/io";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDispatch, useSelector } from "react-redux";
-import { toggleTheme } from "@/redux/themeSlice";
 import { toast } from "sonner";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
+import userLogo from "../assets/user.jpg";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -170,12 +165,7 @@ const Navbar = () => {
                         {/* PROFILE IMAGE */}
                         <Avatar className="w-10 h-10">
                           <AvatarImage
-                            src={
-                              user.profilePicture ||
-                              user.profilePic ||
-                              user.avatar ||
-                              ""
-                            }
+                            src={user.profile?.profilePicture || userLogo}
                             alt={userName}
                           />
 
@@ -198,9 +188,7 @@ const Navbar = () => {
           </div>
         </div>
 
-        
         {/* CENTER SECTION */}
-        
 
         <div className="hidden md:flex items-center gap-19 mt-2">
           {/* HOME */}
@@ -238,13 +226,9 @@ const Navbar = () => {
           </button>
         </div>
 
-        
         {/* RIGHT SECTION */}
-        
 
         <div className="flex items-center justify-end space-x-4 w-[400px]">
-          
-
           {/* PROFILE DROPDOWN */}
 
           <DropdownMenu>
@@ -252,7 +236,7 @@ const Navbar = () => {
               <button>
                 <Avatar className="cursor-pointer">
                   <AvatarImage
-                    src={user?.profilePicture || "/user.jpg"}
+                    src={user?.profile?.profilePicture || "/user.jpg"}
                     alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
                   />
                   <AvatarFallback>
@@ -267,9 +251,7 @@ const Navbar = () => {
               className="w-72 bg-[#262829] text-white border-none"
             >
               {/* ACCOUNT */}
-              <DropdownMenuGroup>
-                
-              </DropdownMenuGroup>
+              <DropdownMenuGroup></DropdownMenuGroup>
 
               <DropdownMenuSeparator />
               {/* LOGOUT */}
