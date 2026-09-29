@@ -350,7 +350,10 @@ const PostCard = ({ post }) => {
       <div className="flex justify-between items-center px-4 pt-4">
         <div className="flex gap-2 items-center">
           <Avatar>
-            <AvatarImage src={post?.user?.profilePicture || userLogo} />
+            <AvatarImage
+              src={post?.user?.profile?.profilePicture || userLogo}
+              alt={`${post?.user?.firstname || ""} ${post?.user?.lastname || ""}`}
+            />
 
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>

@@ -22,7 +22,7 @@ const menuItems = [
       "https://www.meta.ai/?utm_source=facebook_bookmarks&fbclid=IwY2xjawKxAphleHRuA2FlbQIxMABicmlkETFUSEdaZXFqYUxOTlg1S3dyAR6Muvyg4hACJ2WPFp8hB4kbng8eThxPA9w-kU1RLCLIim0dPOjM7_hXBs8O2A_aem_phGQiaSAJWF3ZNZ9s3JQOQ",
   },
   { icon: friends, label: "Friends", click: "/friends" },
-  // { icon: <FaBell />, label: 'Notifications' },
+  
 ];
 
 const Sidebar = () => {
@@ -33,7 +33,8 @@ const Sidebar = () => {
       <Link to={`/profile/${user._id}/post`}>
         <div className="flex items-center cursor-pointer gap-4 mt-2 hover:bg-gray-200 px-3 py-2 rounded-lg dark:hover:bg-[#323233]">
           <Avatar>
-            <AvatarImage src={user.profilePicture || userLogo} />
+            <AvatarImage src={user.profile?.profilePicture || userLogo}
+            alt={`${user?.firstname || ""} ${user?.lastname || ""}`} />
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <h1 className="text-lg font-semibold">{user?.firstname} {user?.lastname}</h1>

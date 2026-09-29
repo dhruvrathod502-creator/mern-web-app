@@ -28,23 +28,28 @@ const CreatePost = () => {
   const [content, setContent] = useState("");
   const [file, setFile] = useState("");
   const [imagePreview, setImagePreview] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const imageRef = useRef();
+
   const { user } = useSelector((store) => store.auth);
-  const {posts} = useSelector(store=>store.post)
+  const { posts } = useSelector((store) => store.post);
+
   const dispatch = useDispatch();
 
+  const profilePicture = user?.profile?.profilePicture || userLogo;
+
   const filechangeHandler = async (e) => {
-    const file = e.target.files[0];
+    const selectedFile = e.target.files?.[0];
 
-    if (file) {
-      setFile(file);
+    if (selectedFile) {
+      setFile(selectedFile);
 
-      const dataUrl = await readFileAsDataURL(file);
+      const dataUrl = await readFileAsDataURL(selectedFile);
       setImagePreview(dataUrl);
     }
   };
 
-  // Cancel image preview
   const removeImage = () => {
     setFile("");
     setImagePreview("");
@@ -54,8 +59,20 @@ const CreatePost = () => {
     }
   };
 
+  const resetForm = () => {
+    setContent("");
+    setFile("");
+    setImagePreview("");
+
+    if (imageRef.current) {
+      imageRef.current.value = "";
+    }
+  };
+
   const submitHandler = async () => {
-    if (!content && !file) {
+    if (submitting) return;
+
+    if (!content.trim() && !file) {
       toast.error("Post must have content or an image");
       return;
     }
@@ -68,6 +85,8 @@ const CreatePost = () => {
     }
 
     try {
+      setSubmitting(true);
+
       const res = await axios.post(
         "http://localhost:9000/api/v1/post/create",
         formData,
@@ -79,23 +98,43 @@ const CreatePost = () => {
         },
       );
 
-      if (res.data.success) {
-        toast.success("Post created successfully");
-        dispatch(setPosts([...posts, res.data.post]))
-        setOpen(false);
-        setContent("");
-        setFile("");
-        setImagePreview("");
-
-        if (imageRef.current) {
-          imageRef.current.value = "";
-        }
-      } else {
+      if (!res.data.success) {
         toast.error(res.data.message || "Failed to post");
+        return;
       }
+
+      toast.success("Post created successfully");
+
+      // Refresh posts so the backend can attach each author's profile.
+      try {
+        const postsRes = await axios.get(
+          "http://localhost:9000/api/v1/post/getAllPost",
+          {
+            withCredentials: true,
+          },
+        );
+
+        if (postsRes.data.success) {
+          dispatch(setPosts(postsRes.data.posts || []));
+        } else if (res.data.post) {
+          dispatch(setPosts([res.data.post, ...(posts || [])]));
+        }
+      } catch (refreshError) {
+        console.error("Failed to refresh posts:", refreshError);
+
+        if (res.data.post) {
+          dispatch(setPosts([res.data.post, ...(posts || [])]));
+        }
+      }
+
+      setOpen(false);
+      resetForm();
     } catch (error) {
-      console.log(error);
+      console.error("Create post error:", error);
+
       toast.error(error.response?.data?.message || "Failed to post");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -104,16 +143,20 @@ const CreatePost = () => {
       {/* Top Section */}
       <div className="flex items-center gap-3">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={user?.profile?.profilePicture || userLogo} />
-          <AvatarFallback>CN</AvatarFallback>
+          <AvatarImage
+            src={profilePicture}
+            alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
+          />
+          <AvatarFallback>
+            {user?.firstname?.charAt(0)?.toUpperCase() || "U"}
+          </AvatarFallback>
         </Avatar>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <Input
             onClick={() => setOpen(true)}
-            placeholder={`What's on your mind, ${user?.firstname}?`}
+            placeholder={`What's on your mind, ${user?.firstname || ""}?`}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
             readOnly
             className="
               flex-1
@@ -141,8 +184,13 @@ const CreatePost = () => {
 
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={user?.profile?.profilePicture || userLogo} />
-                  <AvatarFallback>CN</AvatarFallback>
+                  <AvatarImage
+                    src={profilePicture}
+                    alt={`${user?.firstname || ""} ${user?.lastname || ""}`}
+                  />
+                  <AvatarFallback>
+                    {user?.firstname?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
                 </Avatar>
 
                 <div>
@@ -162,7 +210,7 @@ const CreatePost = () => {
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={`What's on your mind, ${user?.firstname}?`}
+              placeholder={`What's on your mind, ${user?.firstname || ""}?`}
               className="text-xl border-none shadow-none"
             />
 
@@ -175,22 +223,13 @@ const CreatePost = () => {
                   className="w-full max-h-[300px] object-contain rounded-lg"
                 />
 
-                {/* Cancel Button */}
                 <button
                   type="button"
                   onClick={removeImage}
                   className="
-                    absolute
-                    top-2
-                    right-2
-                    bg-black/70
-                    text-white
-                    rounded-full
-                    w-8
-                    h-8
-                    flex
-                    items-center
-                    justify-center
+                    absolute top-2 right-2
+                    bg-black/70 text-white rounded-full
+                    w-8 h-8 flex items-center justify-center
                     hover:bg-black
                   "
                 >
@@ -232,9 +271,10 @@ const CreatePost = () => {
               <Button
                 onClick={submitHandler}
                 type="button"
+                disabled={submitting}
                 className="w-full bg-[#0866ff] hover:bg-[#0866ffdd]"
               >
-                Post
+                {submitting ? "Posting..." : "Post"}
               </Button>
             </DialogFooter>
           </DialogContent>
