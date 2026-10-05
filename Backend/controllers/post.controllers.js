@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import Post from "../models/post.model.js";
+import Profile from "../models/profile.model.js";
 import cloudinary from "../utils/cloudinary.js";
 
 export const createPost = async (req, res) => {
@@ -27,7 +28,7 @@ export const createPost = async (req, res) => {
       .toBuffer();
 
     const fileUri = `data:image/jpeg;base64,${optimizedImageBuffer.toString(
-      "base64"
+      "base64",
     )}`;
 
     const cloudResponse = await cloudinary.uploader.upload(fileUri);
@@ -61,19 +62,43 @@ export const getAllPosts = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate({
         path: "user",
-        select: "firstname lastname profilePicture",
+        select: "firstname lastname",
       })
       .populate({
         path: "comments",
         populate: {
           path: "userId",
-          select: "firstname lastname profilePicture",
+          select: "firstname lastname",
         },
       });
 
+    const userIds = posts.map((post) => post.user?._id).filter(Boolean);
+
+    const profiles = await Profile.find({
+      user: { $in: userIds },
+    }).select("user profilePicture");
+
+    const profileMap = {};
+
+    profiles.forEach((profile) => {
+      profileMap[profile.user.toString()] = profile.profilePicture;
+    });
+
+    const postsWithProfile = posts.map((post) => {
+      const postObject = post.toObject();
+
+      if (postObject.user) {
+        postObject.user.profile = {
+          profilePicture: profileMap[postObject.user._id.toString()] || null,
+        };
+      }
+
+      return postObject;
+    });
+
     return res.status(200).json({
       success: true,
-      posts,
+      posts: postsWithProfile,
     });
   } catch (error) {
     console.log(error);

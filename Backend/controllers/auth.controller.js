@@ -1,4 +1,3 @@
-
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -8,19 +7,12 @@ import { Bio } from "../models/userbio.model.js";
 import Friendship from "../models/friendship.model.js";
 import Profile from "../models/profile.model.js";
 
-
 // ==================== REGISTER ====================
 
 export const registerUser = async (req, res) => {
   try {
-    const {
-      firstname,
-      lastname,
-      email,
-      password,
-      gender,
-      dateOfBirth,
-    } = req.body;
+    const { firstname, lastname, email, password, gender, dateOfBirth } =
+      req.body;
 
     const existingUser = await User.findOne({ email });
 
@@ -74,10 +66,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const matchPassword = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const matchPassword = await bcrypt.compare(password, user.password);
 
     if (!matchPassword) {
       return res.status(401).json({
@@ -86,13 +75,9 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.SECRET_KEY,
-      {
-        expiresIn: "1d",
-      }
-    );
+    const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
+      expiresIn: "1d",
+    });
 
     return res
       .status(200)
@@ -172,22 +157,50 @@ export const getProfile = async (req, res) => {
         }).populate("sender", "firstname lastname email"),
 
         Friendship.find({
-          $or: [
-            { sender: userId },
-            { receiver: userId },
-          ],
+          $or: [{ sender: userId }, { receiver: userId }],
           status: "accepted",
         })
           .populate("sender", "firstname lastname email")
           .populate("receiver", "firstname lastname email"),
       ]);
 
+    const friendIds = friendships.map((friendship) => {
+      if (friendship.sender._id.toString() === userId.toString()) {
+        return friendship.receiver._id;
+      }
+
+      return friendship.sender._id;
+    });
+
+    const friendProfiles = await Profile.find({
+      user: { $in: friendIds },
+    }).select("user profilePicture");
+
+    const profileMap = {};
+
+    friendProfiles.forEach((friendProfile) => {
+      profileMap[friendProfile.user.toString()] = friendProfile.profilePicture;
+    });
+
+    const friendshipsWithPhotos = friendships.map((friendship) => {
+      const friendshipObject = friendship.toObject();
+
+      const senderId = friendshipObject.sender._id.toString();
+      const receiverId = friendshipObject.receiver._id.toString();
+
+      friendshipObject.sender.profilePicture = profileMap[senderId] || null;
+
+      friendshipObject.receiver.profilePicture = profileMap[receiverId] || null;
+
+      return friendshipObject;
+    });
+
     return res.status(200).json({
       success: true,
       user,
       profile,
       bio,
-      friendships,
+      friendships: friendshipsWithPhotos,
       sentRequests,
       receivedRequests,
     });
@@ -224,7 +237,7 @@ export const updateProfilePhoto = async (req, res) => {
         new: true,
         upsert: true,
         runValidators: true,
-      }
+      },
     );
 
     return res.status(200).json({
@@ -265,7 +278,7 @@ export const updateCoverPhoto = async (req, res) => {
         new: true,
         upsert: true,
         runValidators: true,
-      }
+      },
     );
 
     return res.status(200).json({
@@ -358,12 +371,9 @@ export const updateIntro = async (req, res) => {
 
 // ==================== GET CURRENT USER ====================
 
-
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.id)
-      .select("-password")
-      .lean();
+    const user = await User.findById(req.id).select("-password").lean();
 
     if (!user) {
       return res.status(404).json({
@@ -404,10 +414,7 @@ export const sendFriendRequest = async (req, res) => {
     const currentUserId = req.id;
     const targetUserId = req.params.id;
 
-    if (
-      currentUserId.toString() ===
-      targetUserId.toString()
-    ) {
+    if (currentUserId.toString() === targetUserId.toString()) {
       return res.status(400).json({
         success: false,
         message: "You can't send friend request to yourself",
@@ -446,8 +453,7 @@ export const sendFriendRequest = async (req, res) => {
 
       if (
         existingFriendship.status === "pending" &&
-        existingFriendship.sender.toString() ===
-          currentUserId.toString()
+        existingFriendship.sender.toString() === currentUserId.toString()
       ) {
         return res.status(400).json({
           success: false,
@@ -457,20 +463,16 @@ export const sendFriendRequest = async (req, res) => {
 
       if (
         existingFriendship.status === "pending" &&
-        existingFriendship.receiver.toString() ===
-          currentUserId.toString()
+        existingFriendship.receiver.toString() === currentUserId.toString()
       ) {
         return res.status(400).json({
           success: false,
-          message:
-            "This user has already sent you a friend request",
+          message: "This user has already sent you a friend request",
         });
       }
 
       if (existingFriendship.status === "rejected") {
-        await Friendship.findByIdAndDelete(
-          existingFriendship._id
-        );
+        await Friendship.findByIdAndDelete(existingFriendship._id);
       }
     }
 
@@ -506,10 +508,7 @@ export const getFriendRequests = async (req, res) => {
       receiver: currentUserId,
       status: "pending",
     })
-      .populate(
-        "sender",
-        "firstname lastname email profilePicture"
-      )
+      .populate("sender", "firstname lastname email profilePicture")
       .sort({
         createdAt: -1,
       });
@@ -518,10 +517,7 @@ export const getFriendRequests = async (req, res) => {
       sender: currentUserId,
       status: "pending",
     })
-      .populate(
-        "receiver",
-        "firstname lastname email profilePicture"
-      )
+      .populate("receiver", "firstname lastname email profilePicture")
       .sort({
         createdAt: -1,
       });
@@ -537,14 +533,8 @@ export const getFriendRequests = async (req, res) => {
       ],
       status: "accepted",
     })
-      .populate(
-        "sender",
-        "firstname lastname email profilePicture"
-      )
-      .populate(
-        "receiver",
-        "firstname lastname email profilePicture"
-      )
+      .populate("sender", "firstname lastname email profilePicture")
+      .populate("receiver", "firstname lastname email profilePicture")
       .sort({
         createdAt: -1,
       });
@@ -674,9 +664,7 @@ export const unfriendUser = async (req, res) => {
       });
     }
 
-    await Friendship.findByIdAndDelete(
-      friendship._id
-    );
+    await Friendship.findByIdAndDelete(friendship._id);
 
     return res.status(200).json({
       success: true,
@@ -736,4 +724,3 @@ export const searchUsers = async (req, res) => {
     });
   }
 };
-
