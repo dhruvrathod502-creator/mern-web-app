@@ -2,12 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import emptyCover from "../assets/emptyCover.jpg";
 import userLogo from "../assets/user.jpg";
 import { Button } from "@/components/ui/button";
-import {
-  FaCamera,
-  FaFacebookMessenger,
-  FaUserPlus,
-  FaUserCheck,
-} from "react-icons/fa";
+import { FaCamera, FaUserPlus, FaUserCheck } from "react-icons/fa";
 import { FiUserX } from "react-icons/fi";
 import { toast } from "sonner";
 import {
@@ -506,11 +501,6 @@ const Profile = () => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                  <FaFacebookMessenger />
-                  Message
-                </Button>
               </>
             )}
 
@@ -538,11 +528,6 @@ const Profile = () => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                  <FaFacebookMessenger />
-                  Message
-                </Button>
               </>
             )}
 
@@ -554,11 +539,6 @@ const Profile = () => {
                 >
                   <FaUserCheck />
                   Request Sent
-                </Button>
-
-                <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                  <FaFacebookMessenger />
-                  Message
                 </Button>
               </>
             )}
@@ -574,11 +554,6 @@ const Profile = () => {
                   >
                     <FaUserPlus />
                     Add friend
-                  </Button>
-
-                  <Button className="bg-[#0866ff] hover:bg-[#0866ff] text-white cursor-pointer">
-                    <FaFacebookMessenger />
-                    Message
                   </Button>
                 </>
               )}
