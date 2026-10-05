@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { BsThreeDots } from "react-icons/bs";
 import { FiUserX } from "react-icons/fi";
 import axios from "axios";
@@ -19,38 +19,40 @@ import userLogo from "../assets/emptyUser.webp";
 const FriendsPage = () => {
   const { user, userProfile } = useSelector((store) => store.auth);
   const navigate = useNavigate();
+  const { id } = useParams();
 
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getFriends = async () => {
-      try {
-        setLoading(true);
+    const friendships = userProfile?.friendships || [];
 
-        const res = await axios.get(
-          "http://localhost:9000/api/v1/auth/request/list",
-          {
-            withCredentials: true,
-          },
-        );
+    const profileId = id?.toString();
 
-        console.log("FRIENDS RESPONSE:", res.data);
-
-        if (res.data.success) {
-          setFriends(res.data.friends || []);
+    const formattedFriends = friendships
+      .map((friendship) => {
+        if (!friendship?.sender || !friendship?.receiver) {
+          return null;
         }
-      } catch (error) {
-        console.log(error);
 
-        toast.error(error.response?.data?.message || "Failed to get friends");
-      } finally {
-        setLoading(false);
-      }
-    };
+        const senderId = friendship.sender._id?.toString();
+        const receiverId = friendship.receiver._id?.toString();
 
-    getFriends();
-  }, []);
+        if (senderId === profileId) {
+          return friendship.receiver;
+        }
+
+        if (receiverId === profileId) {
+          return friendship.sender;
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+
+    setFriends(formattedFriends);
+    setLoading(false);
+  }, [userProfile, id]);
 
   const handleUnfriend = async (friendId) => {
     try {
@@ -66,7 +68,9 @@ const FriendsPage = () => {
         toast.success("Friend removed");
 
         setFriends((prev) =>
-          prev.filter((friend) => friend.sender?._id !== friendId),
+          prev.filter(
+            (friend) => friend._id?.toString() !== friendId?.toString(),
+          ),
         );
       }
     } catch (error) {
@@ -85,69 +89,57 @@ const FriendsPage = () => {
           <p className="text-gray-500">Loading friends...</p>
         ) : friends.length > 0 ? (
           <div className="grid md:grid-cols-2 gap-3 rounded-2xl">
-            {friends.map((friend) => {
-              const friendUser = friend.sender;
+            {friends.map((friend) => (
+              <div
+                key={friend._id}
+                className="flex justify-between items-center border rounded-2xl p-4"
+              >
+                <div className="flex gap-4 items-center">
+                  <img
+                    onClick={() => navigate(`/profile/${friend._id}/post`)}
+                    src={friend.profilePicture || userLogo}
+                    alt={`${friend.firstname || ""} ${friend.lastname || ""}`}
+                    className="aspect-square rounded-xl w-20 h-20 object-cover cursor-pointer"
+                  />
 
-              if (!friendUser) return null;
-
-              return (
-                <div
-                  key={friend._id}
-                  className="flex justify-between items-center border rounded-2xl p-4"
-                >
-                  <div className="flex gap-4 items-center">
-                    <img
-                      onClick={() =>
-                        navigate(`/profile/${friendUser._id}/post`)
-                      }
-                      src={friendUser.profilePicture || userLogo}
-                      alt={`${friendUser.firstname || ""} ${
-                        friendUser.lastname || ""
-                      }`}
-                      className="aspect-square rounded-xl w-20 h-20 object-cover cursor-pointer"
-                    />
-
-                    <h1
-                      onClick={() =>
-                        navigate(`/profile/${friendUser._id}/post`)
-                      }
-                      className="font-semibold cursor-pointer"
-                    >
-                      {friendUser.firstname} {friendUser.lastname}
-                    </h1>
-                  </div>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#333]">
-                        <BsThreeDots size={20} />
-                      </button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent className="w-[200px]" align="end">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <img
-                          src={unfollow}
-                          alt="Unfollow"
-                          className="h-4 w-4 mr-2"
-                        />
-                        Unfollow
-                      </DropdownMenuItem>
-
-                      {user?._id === userProfile?._id && (
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onClick={() => handleUnfriend(friendUser._id)}
-                        >
-                          <FiUserX className="mr-2" />
-                          Unfriend
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <h1
+                    onClick={() => navigate(`/profile/${friend._id}/post`)}
+                    className="font-semibold cursor-pointer"
+                  >
+                    {friend.firstname} {friend.lastname}
+                  </h1>
                 </div>
-              );
-            })}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#333]">
+                      <BsThreeDots size={20} />
+                    </button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent className="w-[200px]" align="end">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <img
+                        src={unfollow}
+                        alt="Unfollow"
+                        className="h-4 w-4 mr-2"
+                      />
+                      Unfollow
+                    </DropdownMenuItem>
+
+                    {user?._id?.toString() === id?.toString() && (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() => handleUnfriend(friend._id)}
+                      >
+                        <FiUserX className="mr-2" />
+                        Unfriend
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
           </div>
         ) : (
           <div>

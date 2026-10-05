@@ -358,11 +358,12 @@ export const updateIntro = async (req, res) => {
 
 // ==================== GET CURRENT USER ====================
 
+
 export const getCurrentUser = async (req, res) => {
   try {
-    const userId = req.id;
-
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(req.id)
+      .select("-password")
+      .lean();
 
     if (!user) {
       return res.status(404).json({
@@ -371,15 +372,18 @@ export const getCurrentUser = async (req, res) => {
       });
     }
 
-    const profile = await Profile.findOne({
-      user: userId,
-    }).lean();
+    const profile = await Profile.findOne({ user: user._id })
+      .select("profilePicture coverPhoto")
+      .lean();
 
     return res.status(200).json({
       success: true,
       user: {
-        ...user.toObject(),
-        profile: profile || {},
+        ...user,
+        profile: profile || {
+          profilePicture: null,
+          coverPhoto: null,
+        },
       },
     });
   } catch (error) {
